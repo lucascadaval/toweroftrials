@@ -1,0 +1,60 @@
+## Gradle:
+.gradle/
+**/.gradle/
+gradle-app.setting
+build/
+**/build/
+
+## Java:
+*.class
+*.war
+*.ear
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+hs_err_pid*
+.attach_pid*
+
+## General Build and IDEs:
+bin/
+**/bin/
+out/
+**/out/
+.idea/
+*.ipr
+*.iws
+*.iml
+.vscode/
+.history/
+*.sublime-project
+*.sublime-workspace
+.classpath
+.project
+.settings/
+.loadpath
+.externalToolBuilders/
+*.launch
+.nb-gradle/
+nbproject/
+nbactions.xml
+nb-configuration.xml
+
+## OS-Specific and Temporary:
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+*.swp
+*~
+*.*#
+*#*#
+
+## Local Configuration:
+local.properties
+**/local.properties
+.env
+.env.*
+
+## Project Specific:
+/assets/assets.txt
+/.kotlin/
+**/resource-config.json
