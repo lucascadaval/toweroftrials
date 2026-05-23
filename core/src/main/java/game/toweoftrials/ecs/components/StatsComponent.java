@@ -8,8 +8,7 @@ public class StatsComponent implements Component {
     public int attack;
     public int defense;
     public int speed;
-    public int level = 1;
-    public int xp = 0;
+    public int shield = 0;
     public String name;
 
     public StatsComponent(String name, int maxHp, int attack, int defense, int speed) {

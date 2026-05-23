@@ -6,10 +6,8 @@ import com.badlogic.ashley.core.EntitySystem;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.utils.ImmutableArray;
 import com.badlogic.gdx.utils.Array;
-import game.toweoftrials.ecs.components.APComponent;
-import game.toweoftrials.ecs.components.BattleComponent;
-import game.toweoftrials.ecs.components.StatsComponent;
-import game.toweoftrials.ecs.components.AbilitiesComponent;
+import game.toweoftrials.ecs.components.*;
+import game.toweoftrials.model.Skill;
 
 import java.util.Comparator;
 
@@ -18,6 +16,7 @@ public class CombatSystem extends EntitySystem {
     private final ComponentMapper<APComponent> am = ComponentMapper.getFor(APComponent.class);
     private final ComponentMapper<BattleComponent> bm = ComponentMapper.getFor(BattleComponent.class);
     private final ComponentMapper<AbilitiesComponent> abm = ComponentMapper.getFor(AbilitiesComponent.class);
+    private final ComponentMapper<LevelComponent> lm = ComponentMapper.getFor(LevelComponent.class);
 
     private ImmutableArray<Entity> combatants;
     private final Array<Entity> turnQueue = new Array<>();
@@ -62,6 +61,8 @@ public class CombatSystem extends EntitySystem {
         if (combatEnded) return;
         turnQueue.clear();
         for (Entity e : combatants) {
+            bm.get(e).isDead = false; 
+            sm.get(e).shield = 0;    
             turnQueue.add(e);
         }
         sortQueue();
@@ -82,25 +83,21 @@ public class CombatSystem extends EntitySystem {
         if (checkCombatEnd()) return;
 
         if (turnQueue.size == 0) {
-            startCombat(); // New round
+            startCombat(); 
             return;
         }
 
         activeEntity = turnQueue.removeIndex(0);
-        
-        // AP Regeneration to MAX at the start of the turn
         APComponent ap = am.get(activeEntity);
         ap.currentAP = ap.maxAP;
-
-        // Update Cooldowns ONLY at the start of entity's turn
-        AbilitiesComponent abilities = abm.get(activeEntity);
-        abilities.updateCooldowns();
+        sm.get(activeEntity).shield = 0;
+        abm.get(activeEntity).updateCooldowns();
 
         listener.onTurnStarted(activeEntity);
         
         if (!bm.get(activeEntity).isPlayer) {
             waitingForAI = true;
-            timeSinceLastAction = 0.5f; // Initial delay before AI acts
+            timeSinceLastAction = 0.5f; 
         } else {
             waitingForAI = false;
         }
@@ -120,7 +117,6 @@ public class CombatSystem extends EntitySystem {
         }
 
         boolean acted = false;
-        // AI logic: Use as much AP as possible, respecting cooldowns
         if (ap.currentAP >= 4 && abilities.isReady("ULTIMATE")) {
             acted = performAttack(activeEntity, player, "ULTIMATE", 4, 0, 3, 3.5f);
         } else if (ap.currentAP >= 2 && abilities.isReady("Heavy Smash")) {
@@ -137,42 +133,52 @@ public class CombatSystem extends EntitySystem {
         }
     }
 
+    public boolean performSkill(Entity attacker, Entity target, Skill skill) {
+        if (combatEnded) return false;
+
+        if (skill.getType() == Skill.SkillType.DEFENSE) {
+            return performDefensiveSkill(attacker, skill.getName(), skill.getApCost(), skill.getCooldown(), skill.getMultiplier());
+        } else {
+            return performAttack(attacker, target, skill.getName(), skill.getApCost(), 0, skill.getCooldown(), skill.getMultiplier());
+        }
+    }
+
     public boolean performAttack(Entity attacker, Entity target, String actionName, int apCost, int apGain, int cooldown, float multiplier) {
         if (combatEnded) return false;
         
         APComponent ap = am.get(attacker);
         AbilitiesComponent abilities = abm.get(attacker);
 
-        // 1. Check AP cost
         if (ap.currentAP < apCost) {
             if (bm.get(attacker).isPlayer) listener.onActionResolved("Not enough AP for " + actionName);
             return false;
         }
-
-        // 2. Check Cooldown
         if (!abilities.isReady(actionName)) {
             if (bm.get(attacker).isPlayer) listener.onActionResolved(actionName + " is on cooldown! (" + abilities.getRemainingCooldown(actionName) + " turns left)");
             return false;
         }
 
-        // 3. Execute Action
         ap.currentAP -= apCost;
         ap.currentAP = Math.min(ap.maxAP, ap.currentAP + apGain);
-        
-        if (cooldown > 0) {
-            abilities.startCooldown(actionName, cooldown);
-        }
+        if (cooldown > 0) abilities.startCooldown(actionName, cooldown);
 
         StatsComponent aStats = sm.get(attacker);
         StatsComponent tStats = sm.get(target);
 
-        int damage = (int) (Math.max(1, aStats.attack - tStats.defense) * multiplier);
-        tStats.hp = Math.max(0, tStats.hp - damage);
+        int rawDamage = (int) (aStats.attack * multiplier);
+        int finalDamage = Math.max(1, rawDamage - tStats.defense);
+        
+        if (tStats.shield > 0) {
+            int absorbed = Math.min(tStats.shield, finalDamage);
+            tStats.shield -= absorbed;
+            finalDamage -= absorbed;
+            listener.onActionResolved("Shield absorbed " + absorbed + " damage!");
+        }
 
-        String message = aStats.name + " used " + actionName + "!";
-        if (apCost > 0) message += " (-" + apCost + " AP)";
-        if (apGain > 0) message += " (+" + apGain + " AP)";
-        message += "\n" + tStats.name + " took " + damage + " damage!";
+        tStats.hp = Math.max(0, tStats.hp - finalDamage);
+
+        String message = aStats.name + " used " + actionName + "! (-" + apCost + " AP)";
+        message += "\n" + tStats.name + " took " + finalDamage + " damage!";
         
         listener.onActionResolved(message);
 
@@ -180,13 +186,61 @@ public class CombatSystem extends EntitySystem {
             bm.get(target).isDead = true;
             turnQueue.removeValue(target, true);
             listener.onActionResolved(tStats.name + " was defeated!");
+            if (bm.get(attacker).isPlayer) awardXp(attacker, target);
         }
 
         listener.onUpdateUI();
-        
         checkCombatEnd();
-        
         return true;
+    }
+
+    public boolean performDefensiveSkill(Entity entity, String actionName, int apCost, int cooldown, float defenseMultiplier) {
+        if (combatEnded) return false;
+        
+        APComponent ap = am.get(entity);
+        AbilitiesComponent abilities = abm.get(entity);
+
+        if (ap.currentAP < apCost) {
+            if (bm.get(entity).isPlayer) listener.onActionResolved("Not enough AP for " + actionName);
+            return false;
+        }
+        if (!abilities.isReady(actionName)) {
+            if (bm.get(entity).isPlayer) listener.onActionResolved(actionName + " is on cooldown!");
+            return false;
+        }
+
+        ap.currentAP -= apCost;
+        if (cooldown > 0) abilities.startCooldown(actionName, cooldown);
+
+        StatsComponent stats = sm.get(entity);
+        int shieldAmount = (int) (stats.defense * defenseMultiplier);
+        stats.shield += shieldAmount;
+
+        listener.onActionResolved(stats.name + " used " + actionName + "!\nGained " + shieldAmount + " shield!");
+        
+        listener.onUpdateUI();
+        return true;
+    }
+
+    private void awardXp(Entity playerEntity, Entity defeatedEnemy) {
+        StatsComponent enemyStats = sm.get(defeatedEnemy);
+        LevelComponent pl = lm.get(playerEntity);
+        if (pl == null) return;
+        
+        int xpGained = enemyStats.attack + enemyStats.defense + (enemyStats.maxHp / 5);
+        pl.addXp(xpGained);
+        listener.onActionResolved("Gained " + xpGained + " XP!");
+
+        if (pl.canLevelUp()) {
+            pl.levelUp();
+            StatsComponent ps = sm.get(playerEntity);
+            ps.maxHp += 20;
+            ps.hp = ps.maxHp; 
+            ps.attack += 5;
+            ps.defense += 3;
+            ps.speed += 2;
+            listener.onActionResolved("LEVEL UP! Reached Level " + pl.level + "!");
+        }
     }
 
     public boolean checkCombatEnd() {
@@ -229,5 +283,13 @@ public class CombatSystem extends EntitySystem {
             if (bm.get(e).isPlayer) return e;
         }
         return null;
+    }
+
+    public void resetCombat() {
+        combatEnded = false;
+        waitingForAI = false;
+        timeSinceLastAction = 0;
+        turnQueue.clear();
+        startCombat();
     }
 }
