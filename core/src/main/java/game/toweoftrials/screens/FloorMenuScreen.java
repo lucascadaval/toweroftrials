@@ -10,22 +10,36 @@ import game.toweoftrials.Main;
 import game.toweoftrials.model.Enemy;
 
 public class FloorMenuScreen extends BaseScreen {
+    private final int floor;
 
     public FloorMenuScreen(Main game, int floor) {
         super(game);
+        this.floor = floor;
 
-        root.add(new Label("FLOOR " + floor, VisUI.getSkin())).pad(20).row();
+        String floorName = floor == 1 ? "SEWER" : "FLOOR " + floor;
+        root.add(new Label(floorName, VisUI.getSkin())).pad(20).row();
 
         TextButton farmButton = createStyledButton("Farm Dungeon");
         farmButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                Array<Enemy.EnemyType> encounters = new Array<>();
-                encounters.add(Enemy.EnemyType.NORMAL);
-                encounters.add(Enemy.EnemyType.NORMAL);
-                encounters.add(Enemy.EnemyType.NORMAL);
-                encounters.add(Enemy.EnemyType.MINI_BOSS);
-                game.setScreen(new BattleScreen(game, floor, encounters));
+                // Wave 1: 3 Slimes, Wave 2: 3 Gremlins
+                Array<Array<Enemy.EnemyType>> waves = new Array<>();
+                
+                Array<Enemy.EnemyType> wave1 = new Array<>();
+                wave1.add(Enemy.EnemyType.NORMAL);
+                wave1.add(Enemy.EnemyType.NORMAL);
+                wave1.add(Enemy.EnemyType.NORMAL);
+                
+                Array<Enemy.EnemyType> wave2 = new Array<>();
+                wave2.add(Enemy.EnemyType.NORMAL); // We'll assume NORMAL is Slime for wave 1 and something else for others?
+                wave2.add(Enemy.EnemyType.NORMAL); // Actually, for now, let's keep it simple.
+                wave2.add(Enemy.EnemyType.NORMAL);
+                
+                waves.add(wave1);
+                waves.add(wave2);
+                
+                game.setScreen(new BattleScreen(game, floor, waves));
             }
         });
 
@@ -33,7 +47,11 @@ public class FloorMenuScreen extends BaseScreen {
         bossButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                game.setScreen(new BattleScreen(game, floor, Enemy.EnemyType.BOSS));
+                Array<Array<Enemy.EnemyType>> waves = new Array<>();
+                Array<Enemy.EnemyType> bossWave = new Array<>();
+                bossWave.add(Enemy.EnemyType.BOSS);
+                waves.add(bossWave);
+                game.setScreen(new BattleScreen(game, floor, waves));
             }
         });
 

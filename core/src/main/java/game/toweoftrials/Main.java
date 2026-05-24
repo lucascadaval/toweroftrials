@@ -27,7 +27,7 @@ public class Main extends Game {
         hero.add(new BattleComponent(true));
         hero.add(new AbilitiesComponent());
         hero.add(new LevelComponent());
-        hero.add(new VisualComponent("player/hero_player.png"));
+        hero.add(new VisualComponent("player/hero_fighter.png"));
         HeroManager.setHero(hero);
 
         setScreen(new HubScreen(this));

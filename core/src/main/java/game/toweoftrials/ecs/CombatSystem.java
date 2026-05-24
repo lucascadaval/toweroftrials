@@ -38,12 +38,7 @@ public class CombatSystem extends EntitySystem {
 
     @Override
     public void addedToEngine(com.badlogic.ashley.core.Engine engine) {
-        combatants = engine.getEntitiesFor(Family.all(StatsComponent.class, APComponent.class, BattleComponent.class, AbilitiesComponent.class).get());
-    }
-
-    @Override
-    public void update(float deltaTime) {
-        // AI execution is now triggered by the UI to ensure the player can read the log
+        combatants = engine.getEntitiesFor(Family.all(StatsComponent.class, BattleComponent.class, AbilitiesComponent.class).get());
     }
 
     public void startCombat() {
@@ -72,8 +67,20 @@ public class CombatSystem extends EntitySystem {
         }
 
         activeEntity = turnQueue.removeIndex(0);
-        APComponent ap = am.get(activeEntity);
-        ap.currentAP = ap.maxAP;
+        
+        // Skip dead entities that might still be in the queue
+        BattleComponent bc = bm.get(activeEntity);
+        if (bc == null || bc.isDead) {
+            nextTurn();
+            return;
+        }
+        
+        // AP Regeneration ONLY for Player
+        if (bc.isPlayer) {
+            APComponent ap = am.get(activeEntity);
+            if (ap != null) ap.currentAP = ap.maxAP;
+        }
+
         sm.get(activeEntity).shield = 0;
         abm.get(activeEntity).updateCooldowns();
 
@@ -83,32 +90,18 @@ public class CombatSystem extends EntitySystem {
     public void executeOneAIAction() {
         if (combatEnded || activeEntity == null || bm.get(activeEntity).isPlayer) return;
         
-        APComponent ap = am.get(activeEntity);
-        AbilitiesComponent abilities = abm.get(activeEntity);
         Entity player = getPlayer();
-        
         if (player == null || bm.get(player).isDead) {
             nextTurn();
             return;
         }
 
-        boolean acted = false;
-        if (ap.currentAP >= 4 && abilities.isReady("ULTIMATE")) {
-            acted = performAttack(activeEntity, player, "ULTIMATE", 4, 0, 3, 3.5f);
-            if (acted) listener.onAnimationRequested(activeEntity, player, null);
-        } else if (ap.currentAP >= 2 && abilities.isReady("Heavy Smash")) {
-            acted = performAttack(activeEntity, player, "Heavy Smash", 2, 0, 1, 1.8f);
-            if (acted) listener.onAnimationRequested(activeEntity, player, null);
-        } else if (ap.currentAP >= 1 && abilities.isReady("Quick Strike")) {
-            acted = performAttack(activeEntity, player, "Quick Strike", 1, 0, 0, 1.2f);
-            if (acted) listener.onAnimationRequested(activeEntity, player, null);
-        } else if (ap.currentAP >= 1) { 
-            acted = performAttack(activeEntity, player, "Basic Attack", 1, 0, 0, 1.0f);
-            if (acted) listener.onAnimationRequested(activeEntity, player, "double_slash");
-        }
+        // Enemies only have 1 action per turn. Use basic attack for now.
+        performAttack(activeEntity, player, "Attack", 0, 0, 0, 1.0f);
+        listener.onAnimationRequested(activeEntity, player, null);
 
-        if (!acted || combatEnded) {
-            if (!combatEnded) nextTurn();
+        if (!combatEnded) {
+            nextTurn(); // End enemy turn after 1 action
         }
     }
 
@@ -116,39 +109,86 @@ public class CombatSystem extends EntitySystem {
         if (combatEnded) return false;
 
         boolean success;
-        if (skill.getType() == Skill.SkillType.DEFENSE) {
+        if (skill.getType() == Skill.SkillType.DEFENSIVE) {
             success = performDefensiveSkill(attacker, skill.getName(), skill.getApCost(), skill.getCooldown(), skill.getMultiplier());
             if (success && skill.getAnimationName() != null) {
                 listener.onAnimationRequested(attacker, attacker, skill.getAnimationName());
             }
-        } else {
-            success = performAttack(attacker, target, skill.getName(), skill.getApCost(), 0, skill.getCooldown(), skill.getMultiplier());
+        } else if (skill.getType() == Skill.SkillType.HEAL) {
+            success = performHealSkill(attacker, target, skill.getName(), skill.getApCost(), skill.getCooldown(), skill.getMultiplier());
             if (success && skill.getAnimationName() != null) {
+                listener.onAnimationRequested(attacker, target, skill.getAnimationName());
+            }
+        } else {
+            // OFFENSIVE
+            success = performAttack(attacker, target, skill.getName(), skill.getApCost(), 0, skill.getCooldown(), skill.getMultiplier());
+            if (success) {
                 listener.onAnimationRequested(attacker, target, skill.getAnimationName());
             }
         }
         return success;
     }
 
+    public boolean performHealSkill(Entity attacker, Entity target, String actionName, int apCost, int cooldown, float multiplier) {
+        if (combatEnded) return false;
+        
+        BattleComponent abc = bm.get(attacker);
+        if (abc.isPlayer) {
+            APComponent ap = am.get(attacker);
+            if (ap.currentAP < apCost) {
+                listener.onActionResolved("Not enough AP!");
+                return false;
+            }
+            ap.currentAP -= apCost;
+        }
+
+        AbilitiesComponent abilities = abm.get(attacker);
+        if (!abilities.isReady(actionName)) {
+            if (abc.isPlayer) listener.onActionResolved(actionName + " is on cooldown!");
+            return false;
+        }
+
+        if (cooldown > 0) abilities.startCooldown(actionName, cooldown);
+
+        StatsComponent aStats = sm.get(attacker);
+        StatsComponent tStats = sm.get(target);
+
+        int healAmount = (int) (aStats.attack * multiplier); // Heal scales with Attack for now
+        tStats.hp = Math.min(tStats.maxHp, tStats.hp + healAmount);
+
+        listener.onActionResolved(aStats.name + " used " + actionName + " on " + tStats.name + "!\nHealed " + healAmount + " HP!");
+        listener.onUpdateUI();
+        return true;
+    }
+
     @SuppressWarnings("UnusedReturnValue")
     public boolean performAttack(Entity attacker, Entity target, String actionName, int apCost, int apGain, int cooldown, float multiplier) {
         if (combatEnded) return false;
         
-        APComponent ap = am.get(attacker);
+        BattleComponent abc = bm.get(attacker);
         AbilitiesComponent abilities = abm.get(attacker);
 
-        if (ap.currentAP < apCost) {
-            if (bm.get(attacker).isPlayer) listener.onActionResolved("Not enough AP for " + actionName);
-            return false;
+        // 1. Check AP cost ONLY for player
+        if (abc.isPlayer) {
+            APComponent ap = am.get(attacker);
+            if (ap.currentAP < apCost) {
+                listener.onActionResolved("Not enough AP for " + actionName);
+                return false;
+            }
+            ap.currentAP -= apCost;
+            ap.currentAP = Math.min(ap.maxAP, ap.currentAP + apGain);
         }
+
+        // 2. Check Cooldown
         if (!abilities.isReady(actionName)) {
-            if (bm.get(attacker).isPlayer) listener.onActionResolved(actionName + " is on cooldown! (" + abilities.getRemainingCooldown(actionName) + " turns left)");
+            if (abc.isPlayer) listener.onActionResolved(actionName + " is on cooldown! (" + abilities.getRemainingCooldown(actionName) + " turns left)");
             return false;
         }
 
-        ap.currentAP -= apCost;
-        ap.currentAP = Math.min(ap.maxAP, ap.currentAP + apGain);
-        if (cooldown > 0) abilities.startCooldown(actionName, cooldown);
+        // 3. Execute Action
+        if (cooldown > 0) {
+            abilities.startCooldown(actionName, cooldown);
+        }
 
         StatsComponent aStats = sm.get(attacker);
         StatsComponent tStats = sm.get(target);
@@ -165,7 +205,8 @@ public class CombatSystem extends EntitySystem {
 
         tStats.hp = Math.max(0, tStats.hp - finalDamage);
 
-        String message = aStats.name + " used " + actionName + "! (-" + apCost + " AP)";
+        String message = aStats.name + " used " + actionName + "!";
+        if (abc.isPlayer && apCost > 0) message += " (-" + apCost + " AP)";
         message += "\n" + tStats.name + " took " + finalDamage + " damage!";
         
         listener.onActionResolved(message);
@@ -174,7 +215,7 @@ public class CombatSystem extends EntitySystem {
             bm.get(target).isDead = true;
             turnQueue.removeValue(target, true);
             listener.onActionResolved(tStats.name + " was defeated!");
-            if (bm.get(attacker).isPlayer) awardXp(attacker, target);
+            if (abc.isPlayer) awardXp(attacker, target);
         }
 
         listener.onUpdateUI();
@@ -185,19 +226,22 @@ public class CombatSystem extends EntitySystem {
     public boolean performDefensiveSkill(Entity entity, String actionName, int apCost, int cooldown, float defenseMultiplier) {
         if (combatEnded) return false;
         
-        APComponent ap = am.get(entity);
+        BattleComponent bc = bm.get(entity);
+        if (bc.isPlayer) {
+            APComponent ap = am.get(entity);
+            if (ap.currentAP < apCost) {
+                listener.onActionResolved("Not enough AP for " + actionName);
+                return false;
+            }
+            ap.currentAP -= apCost;
+        }
+
         AbilitiesComponent abilities = abm.get(entity);
-
-        if (ap.currentAP < apCost) {
-            if (bm.get(entity).isPlayer) listener.onActionResolved("Not enough AP for " + actionName);
-            return false;
-        }
         if (!abilities.isReady(actionName)) {
-            if (bm.get(entity).isPlayer) listener.onActionResolved(actionName + " is on cooldown!");
+            if (bc.isPlayer) listener.onActionResolved(actionName + " is on cooldown!");
             return false;
         }
 
-        ap.currentAP -= apCost;
         if (cooldown > 0) abilities.startCooldown(actionName, cooldown);
 
         StatsComponent stats = sm.get(entity);

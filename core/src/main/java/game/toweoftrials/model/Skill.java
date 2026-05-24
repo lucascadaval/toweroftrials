@@ -2,7 +2,7 @@ package game.toweoftrials.model;
 
 public class Skill {
     public enum SkillType {
-        DAMAGE, DEFENSE, SUPPORT
+        OFFENSIVE, DEFENSIVE, HEAL
     }
 
     private final String name;
