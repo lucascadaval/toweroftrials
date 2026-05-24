@@ -5,9 +5,9 @@ public class Item {
         COMMON, RARE, EPIC, LEGENDARY
     }
 
-    private String name;
-    private ItemRarity rarity;
-    private String description;
+    private final String name;
+    private final ItemRarity rarity;
+    private final String description;
 
     public Item(String name, ItemRarity rarity, String description) {
         this.name = name;
@@ -16,6 +16,4 @@ public class Item {
     }
 
     public String getName() { return name; }
-    public ItemRarity getRarity() { return rarity; }
-    public String getDescription() { return description; }
 }

@@ -17,5 +17,7 @@ public class Player extends GameEntity {
         StatsComponent stats = getStats();
         stats.hp = stats.maxHp;
         stats.shield = 0;
+        entity.getComponent(BattleComponent.class).isDead = false;
+        getAbilities().resetCooldowns();
     }
 }

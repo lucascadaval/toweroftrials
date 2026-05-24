@@ -32,8 +32,4 @@ public abstract class GameEntity {
     public String getName() {
         return getStats().name;
     }
-    
-    public boolean isDead() {
-        return entity.getComponent(BattleComponent.class).isDead;
-    }
 }

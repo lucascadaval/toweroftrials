@@ -9,11 +9,9 @@ import game.toweoftrials.Main;
 import game.toweoftrials.model.Enemy;
 
 public class FloorMenuScreen extends BaseScreen {
-    private final int floor;
 
     public FloorMenuScreen(Main game, int floor) {
         super(game);
-        this.floor = floor;
 
         root.add(new VisLabel("FLOOR " + floor)).pad(20).row();
 

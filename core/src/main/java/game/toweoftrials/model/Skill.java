@@ -5,11 +5,11 @@ public class Skill {
         DAMAGE, DEFENSE, SUPPORT
     }
 
-    private String name;
-    private int apCost;
-    private int cooldown;
-    private float multiplier;
-    private SkillType type;
+    private final String name;
+    private final int apCost;
+    private final int cooldown;
+    private final float multiplier;
+    private final SkillType type;
 
     public Skill(String name, SkillType type, int apCost, int cooldown, float multiplier) {
         this.name = name;

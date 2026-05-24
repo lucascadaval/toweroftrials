@@ -1,7 +1,6 @@
 package game.toweoftrials;
 
 import com.badlogic.gdx.Game;
-import com.badlogic.gdx.Gdx;
 import com.kotcrab.vis.ui.VisUI;
 import com.kotcrab.vis.ui.VisUI.SkinScale;
 import com.badlogic.ashley.core.Entity;

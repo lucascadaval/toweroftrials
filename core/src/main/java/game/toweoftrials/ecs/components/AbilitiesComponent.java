@@ -22,12 +22,15 @@ public class AbilitiesComponent implements Component {
     }
 
     public void updateCooldowns() {
-        ObjectMap.Keys<String> keys = currentCooldowns.keys();
-        for (String key : keys) {
+        for (String key : currentCooldowns.keys().toArray()) {
             int remaining = currentCooldowns.get(key);
             if (remaining > 0) {
                 currentCooldowns.put(key, remaining - 1);
             }
         }
+    }
+
+    public void resetCooldowns() {
+        currentCooldowns.clear();
     }
 }

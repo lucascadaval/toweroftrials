@@ -24,7 +24,7 @@ public class CombatSystem extends EntitySystem {
     private final CombatListener listener;
     private boolean combatEnded = false;
 
-    private float actionDelay = 1.0f;
+    private final float actionDelay = 1.0f;
     private float timeSinceLastAction = 0;
     private boolean waitingForAI = false;
 
@@ -70,12 +70,7 @@ public class CombatSystem extends EntitySystem {
     }
 
     private void sortQueue() {
-        turnQueue.sort(new Comparator<Entity>() {
-            @Override
-            public int compare(Entity o1, Entity o2) {
-                return Integer.compare(sm.get(o2).speed, sm.get(o1).speed);
-            }
-        });
+        turnQueue.sort((o1, o2) -> Integer.compare(sm.get(o2).speed, sm.get(o1).speed));
     }
 
     public void nextTurn() {
@@ -143,6 +138,7 @@ public class CombatSystem extends EntitySystem {
         }
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     public boolean performAttack(Entity attacker, Entity target, String actionName, int apCost, int apGain, int cooldown, float multiplier) {
         if (combatEnded) return false;
         
@@ -245,24 +241,31 @@ public class CombatSystem extends EntitySystem {
 
     public boolean checkCombatEnd() {
         if (combatEnded) return true;
+        
+        if (combatants == null || combatants.size() == 0) return false;
 
         boolean playerAlive = false;
         boolean enemiesAlive = false;
+        boolean playerFound = false;
 
         for (Entity e : combatants) {
             BattleComponent bc = bm.get(e);
+            if (bc.isPlayer) playerFound = true;
+
             if (!bc.isDead) {
                 if (bc.isPlayer) playerAlive = true;
                 else enemiesAlive = true;
             }
         }
 
-        if (!playerAlive) {
+        // Only trigger defeat if player was found but is not alive
+        if (playerFound && !playerAlive) {
             combatEnded = true;
             listener.onCombatEnded(false);
             return true;
         }
-        if (!enemiesAlive) {
+        // Only trigger victory if player was found and no enemies are alive
+        if (playerFound && !enemiesAlive) {
             combatEnded = true;
             listener.onCombatEnded(true);
             return true;
