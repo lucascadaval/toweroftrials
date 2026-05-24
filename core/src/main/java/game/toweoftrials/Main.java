@@ -1,9 +1,11 @@
 package game.toweoftrials;
 
 import com.badlogic.gdx.Game;
-import com.kotcrab.vis.ui.VisUI;
-import com.kotcrab.vis.ui.VisUI.SkinScale;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.ashley.core.Entity;
+import com.kotcrab.vis.ui.VisUI;
 import game.toweoftrials.ecs.HeroManager;
 import game.toweoftrials.ecs.components.*;
 import game.toweoftrials.screens.HubScreen;
@@ -13,8 +15,10 @@ public class Main extends Game {
 
     @Override
     public void create () {
-        VisUI.setSkipGdxVersionCheck(true);
-        VisUI.load(SkinScale.X1);
+        // Load custom Commodore 64 skin
+        TextureAtlas atlas = new TextureAtlas(Gdx.files.internal("Commodore_64_UI_Skin/commodore64ui/uiskin.atlas"));
+        Skin skin = new Skin(Gdx.files.internal("Commodore_64_UI_Skin/commodore64ui/uiskin.json"), atlas);
+        VisUI.load(skin);
 
         // Initialize persistent Hero
         Entity hero = new Entity();
