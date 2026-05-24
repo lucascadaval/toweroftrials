@@ -24,15 +24,12 @@ public class CombatSystem extends EntitySystem {
     private final CombatListener listener;
     private boolean combatEnded = false;
 
-    private final float actionDelay = 1.0f;
-    private float timeSinceLastAction = 0;
-    private boolean waitingForAI = false;
-
     public interface CombatListener {
         void onTurnStarted(Entity entity);
         void onActionResolved(String message);
         void onCombatEnded(boolean playerWon);
         void onUpdateUI();
+        void onAnimationRequested(Entity attacker, Entity target, String animationName);
     }
 
     public CombatSystem(CombatListener listener) {
@@ -46,15 +43,7 @@ public class CombatSystem extends EntitySystem {
 
     @Override
     public void update(float deltaTime) {
-        if (combatEnded) return;
-
-        if (waitingForAI && activeEntity != null && !bm.get(activeEntity).isPlayer) {
-            timeSinceLastAction += deltaTime;
-            if (timeSinceLastAction >= actionDelay) {
-                timeSinceLastAction = 0;
-                executeOneAIAction();
-            }
-        }
+        // AI execution is now triggered by the UI to ensure the player can read the log
     }
 
     public void startCombat() {
@@ -89,24 +78,16 @@ public class CombatSystem extends EntitySystem {
         abm.get(activeEntity).updateCooldowns();
 
         listener.onTurnStarted(activeEntity);
-        
-        if (!bm.get(activeEntity).isPlayer) {
-            waitingForAI = true;
-            timeSinceLastAction = 0.5f; 
-        } else {
-            waitingForAI = false;
-        }
     }
 
-    private void executeOneAIAction() {
-        if (combatEnded) return;
+    public void executeOneAIAction() {
+        if (combatEnded || activeEntity == null || bm.get(activeEntity).isPlayer) return;
         
         APComponent ap = am.get(activeEntity);
         AbilitiesComponent abilities = abm.get(activeEntity);
         Entity player = getPlayer();
         
         if (player == null || bm.get(player).isDead) {
-            waitingForAI = false;
             nextTurn();
             return;
         }
@@ -114,16 +95,19 @@ public class CombatSystem extends EntitySystem {
         boolean acted = false;
         if (ap.currentAP >= 4 && abilities.isReady("ULTIMATE")) {
             acted = performAttack(activeEntity, player, "ULTIMATE", 4, 0, 3, 3.5f);
+            if (acted) listener.onAnimationRequested(activeEntity, player, null);
         } else if (ap.currentAP >= 2 && abilities.isReady("Heavy Smash")) {
             acted = performAttack(activeEntity, player, "Heavy Smash", 2, 0, 1, 1.8f);
+            if (acted) listener.onAnimationRequested(activeEntity, player, null);
         } else if (ap.currentAP >= 1 && abilities.isReady("Quick Strike")) {
             acted = performAttack(activeEntity, player, "Quick Strike", 1, 0, 0, 1.2f);
+            if (acted) listener.onAnimationRequested(activeEntity, player, null);
         } else if (ap.currentAP >= 1) { 
             acted = performAttack(activeEntity, player, "Basic Attack", 1, 0, 0, 1.0f);
+            if (acted) listener.onAnimationRequested(activeEntity, player, "double_slash");
         }
 
         if (!acted || combatEnded) {
-            waitingForAI = false;
             if (!combatEnded) nextTurn();
         }
     }
@@ -131,11 +115,19 @@ public class CombatSystem extends EntitySystem {
     public boolean performSkill(Entity attacker, Entity target, Skill skill) {
         if (combatEnded) return false;
 
+        boolean success;
         if (skill.getType() == Skill.SkillType.DEFENSE) {
-            return performDefensiveSkill(attacker, skill.getName(), skill.getApCost(), skill.getCooldown(), skill.getMultiplier());
+            success = performDefensiveSkill(attacker, skill.getName(), skill.getApCost(), skill.getCooldown(), skill.getMultiplier());
+            if (success && skill.getAnimationName() != null) {
+                listener.onAnimationRequested(attacker, attacker, skill.getAnimationName());
+            }
         } else {
-            return performAttack(attacker, target, skill.getName(), skill.getApCost(), 0, skill.getCooldown(), skill.getMultiplier());
+            success = performAttack(attacker, target, skill.getName(), skill.getApCost(), 0, skill.getCooldown(), skill.getMultiplier());
+            if (success && skill.getAnimationName() != null) {
+                listener.onAnimationRequested(attacker, target, skill.getAnimationName());
+            }
         }
+        return success;
     }
 
     @SuppressWarnings("UnusedReturnValue")
@@ -241,7 +233,6 @@ public class CombatSystem extends EntitySystem {
 
     public boolean checkCombatEnd() {
         if (combatEnded) return true;
-        
         if (combatants == null || combatants.size() == 0) return false;
 
         boolean playerAlive = false;
@@ -251,20 +242,17 @@ public class CombatSystem extends EntitySystem {
         for (Entity e : combatants) {
             BattleComponent bc = bm.get(e);
             if (bc.isPlayer) playerFound = true;
-
             if (!bc.isDead) {
                 if (bc.isPlayer) playerAlive = true;
                 else enemiesAlive = true;
             }
         }
 
-        // Only trigger defeat if player was found but is not alive
         if (playerFound && !playerAlive) {
             combatEnded = true;
             listener.onCombatEnded(false);
             return true;
         }
-        // Only trigger victory if player was found and no enemies are alive
         if (playerFound && !enemiesAlive) {
             combatEnded = true;
             listener.onCombatEnded(true);
@@ -290,8 +278,6 @@ public class CombatSystem extends EntitySystem {
 
     public void resetCombat() {
         combatEnded = false;
-        waitingForAI = false;
-        timeSinceLastAction = 0;
         turnQueue.clear();
         startCombat();
     }

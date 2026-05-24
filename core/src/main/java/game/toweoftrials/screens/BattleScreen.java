@@ -6,10 +6,14 @@ import com.badlogic.ashley.core.ComponentMapper;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.Animation;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.Touchable;
+import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
@@ -18,11 +22,13 @@ import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.ObjectMap;
 import com.kotcrab.vis.ui.VisUI;
 import game.toweoftrials.Main;
 import game.toweoftrials.ecs.CombatSystem;
 import game.toweoftrials.ecs.HeroManager;
 import game.toweoftrials.ecs.components.*;
+import game.toweoftrials.model.AnimationEffect;
 import game.toweoftrials.model.Enemy;
 import game.toweoftrials.model.Player;
 import game.toweoftrials.model.Skill;
@@ -58,18 +64,35 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
     private Table equipmentArea;
     private Table combatArea;
     
+    private Table playerSide;
+    private Table enemySide;
+    
     private TextButton attackBtn, skill1Btn, skill2Btn, ultimateBtn, passTurnBtn, guardBtn;
+    
+    private final ObjectMap<String, Array<Texture>> animationFrames = new ObjectMap<>();
+    private final Array<ActiveAnimation> activeAnimations = new Array<>();
+    
+    private static class ActiveAnimation {
+        AnimationEffect effect;
+        Actor anchor;
+        
+        ActiveAnimation(AnimationEffect effect, Actor anchor) {
+            this.effect = effect;
+            this.anchor = anchor;
+        }
+    }
     
     private final Array<String> logMessageQueue = new Array<>();
     private boolean isShowingLog = false;
     private boolean combatJustEnded = false;
     private boolean playerWonLast = false;
 
-    private final Skill basicAttack = new Skill("Basic Attack", Skill.SkillType.DAMAGE, 1, 0, 1.0f);
-    private final Skill quickStrike = new Skill("Quick Strike", Skill.SkillType.DAMAGE, 1, 0, 1.2f);
-    private final Skill heavySmash = new Skill("Heavy Smash", Skill.SkillType.DAMAGE, 2, 1, 1.8f);
-    private final Skill ultimate = new Skill("ULTIMATE", Skill.SkillType.DAMAGE, 4, 3, 3.5f);
-    private final Skill guard = new Skill("Guard", Skill.SkillType.DEFENSE, 1, 0, 1.5f);
+    private final Skill basicAttack = new Skill("Basic Attack", Skill.SkillType.DAMAGE, 1, 0, 1.0f, "double_slash");
+    private final Skill quickStrike = new Skill("Quick Strike", Skill.SkillType.DAMAGE, 1, 0, 1.2f, null);
+    private final Skill heavySmash = new Skill("Heavy Smash", Skill.SkillType.DAMAGE, 2, 1, 1.8f, null);
+    private final Skill ultimate = new Skill("ULTIMATE", Skill.SkillType.DAMAGE, 4, 3, 3.5f, null);
+    private final Skill guard = new Skill("Guard", Skill.SkillType.DEFENSE, 1, 0, 1.5f, null);
+    private final Skill doubleSlash = new Skill("Double Slash", Skill.SkillType.DAMAGE, 2, 1, 2.2f, "double_slash");
 
     public BattleScreen(Main game, int floor, Enemy.EnemyType type) {
         this(game, floor, new Array<>(new Enemy.EnemyType[]{type}));
@@ -83,6 +106,8 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         this.white = VisUI.getSkin().getDrawable("white");
         this.slimeTexture = new Texture(Gdx.files.internal("monsters/slime_blue.png"));
         
+        loadSkillAnimations();
+        
         this.engine = new Engine();
         this.combatSystem = new CombatSystem(this);
         engine.addSystem(combatSystem);
@@ -95,8 +120,19 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         combatSystem.resetCombat();
     }
 
+    private void loadSkillAnimations() {
+        Array<Texture> frames = new Array<>();
+        for (int i = 1; i <= 10; i++) {
+            frames.add(new Texture(Gdx.files.internal("skills/double_slash/warrior_skill1_frame" + i + ".png")));
+        }
+        animationFrames.put("double_slash", frames);
+    }
+
     private void setupPlayer() {
         this.player = HeroManager.getPlayer();
+        if (player.getEntity().getComponent(VisualComponent.class) == null) {
+            player.getEntity().add(new VisualComponent(null)); 
+        }
         engine.addEntity(player.getEntity());
     }
 
@@ -106,14 +142,19 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         if (enemy != null) engine.removeEntity(enemy.getEntity());
 
         Entity enemyEntity = new Entity();
+        String texPath = null;
         switch (type) {
             case BOSS: enemyEntity.add(new StatsComponent("Boss Floor " + floor, 500, 40, 20, 10)); break;
             case MINI_BOSS: enemyEntity.add(new StatsComponent("Elite Guardian", 200, 30, 15, 12)); break;
-            default: enemyEntity.add(new StatsComponent("Slime", 50, 15, 5, 12)); break;
+            default: 
+                enemyEntity.add(new StatsComponent("Slime", 50, 15, 5, 12));
+                texPath = "monsters/slime_blue.png";
+                break;
         }
         enemyEntity.add(new APComponent(5));
         enemyEntity.add(new BattleComponent(false));
         enemyEntity.add(new AbilitiesComponent());
+        enemyEntity.add(new VisualComponent(texPath));
         engine.addEntity(enemyEntity);
         this.enemy = new Enemy(enemyEntity, type);
     }
@@ -172,6 +213,8 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         return slot;
     }
 
+    private final ObjectMap<String, Texture> entityTextures = new ObjectMap<>();
+
     private void setupCombatUI() {
         combatArea.clear();
         
@@ -181,25 +224,22 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
 
         Table battleLayout = new Table();
         
-        Table playerSide = new Table();
-        Image playerImg = new Image(white); playerImg.setColor(Color.BLUE);
+        playerSide = new Table();
+        VisualComponent pVis = player.getEntity().getComponent(VisualComponent.class);
+        Image playerImg = createEntityImage(pVis, Color.BLUE);
         playerSide.add(playerImg).size(120).pad(10).row();
         playerSide.add(new Label(player.getName(), VisUI.getSkin())).row();
         playerLevelLabel = new Label("", VisUI.getSkin()); playerSide.add(playerLevelLabel).row();
         playerHPLabel = new Label("", VisUI.getSkin()); playerSide.add(playerHPLabel).row();
         playerAPLabel = new Label("", VisUI.getSkin()); playerSide.add(playerAPLabel).row();
         
-        Table enemySide = new Table();
-        Image enemyImg;
-        if (type == Enemy.EnemyType.NORMAL) {
-            enemyImg = new Image(slimeTexture);
-        } else {
-            enemyImg = new Image(white);
-            if (type == Enemy.EnemyType.BOSS) enemyImg.setColor(Color.PURPLE);
-            else if (type == Enemy.EnemyType.MINI_BOSS) enemyImg.setColor(Color.ORANGE);
-            else enemyImg.setColor(Color.RED);
-        }
+        enemySide = new Table();
+        VisualComponent eVis = enemy.getEntity().getComponent(VisualComponent.class);
+        Color enemyDefColor = Color.RED;
+        if (type == Enemy.EnemyType.BOSS) enemyDefColor = Color.PURPLE;
+        else if (type == Enemy.EnemyType.MINI_BOSS) enemyDefColor = Color.ORANGE;
         
+        Image enemyImg = createEntityImage(eVis, enemyDefColor);
         float eSize = type == Enemy.EnemyType.BOSS ? 200 : (type == Enemy.EnemyType.MINI_BOSS ? 160 : 120);
         enemySide.add(enemyImg).size(eSize).pad(10).row();
         enemySide.add(new Label(enemy.getName(), VisUI.getSkin())).row();
@@ -209,6 +249,19 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         battleLayout.add(playerSide).expandX().center();
         
         combatArea.add(battleLayout).grow().center();
+    }
+
+    private Image createEntityImage(VisualComponent vis, Color fallbackColor) {
+        if (vis != null && vis.texturePath != null) {
+            if (!entityTextures.containsKey(vis.texturePath)) {
+                entityTextures.put(vis.texturePath, new Texture(Gdx.files.internal(vis.texturePath)));
+            }
+            return new Image(entityTextures.get(vis.texturePath));
+        } else {
+            Image img = new Image(white);
+            img.setColor(fallbackColor);
+            return img;
+        }
     }
 
     private void setupActionUI() {
@@ -253,7 +306,17 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         if (logMessageQueue.size == 0) {
             isShowingLog = false;
             setupActionUI();
-        } else {
+
+            // Check if we need to trigger the next AI action
+            Entity active = combatSystem.getActiveEntity();
+            if (active != null) {
+                 BattleComponent bc = active.getComponent(BattleComponent.class);
+                 if (bc != null && !bc.isDead && !bc.isPlayer && !combatSystem.isCombatEnded()) {
+                     combatSystem.executeOneAIAction();
+                 }
+            }
+        }
+ else {
             showLogUI();
         }
     }
@@ -265,7 +328,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         Table buttons = new Table();
         attackBtn = createStyledButton("Basic Attack (1 AP)");
         skill1Btn = createStyledButton("Quick Strike (1 AP)");
-        skill2Btn = createStyledButton("Heavy Smash (2 AP)");
+        skill2Btn = createStyledButton("Double Slash (2 AP)");
         ultimateBtn = createStyledButton("ULTIMATE (4 AP)");
         guardBtn = createStyledButton("Guard (1 AP)");
         passTurnBtn = createStyledButton("Pass Turn");
@@ -284,9 +347,9 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
 
         attackBtn.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { combatSystem.performSkill(player.getEntity(), enemy.getEntity(), basicAttack); }});
         skill1Btn.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { combatSystem.performSkill(player.getEntity(), enemy.getEntity(), quickStrike); }});
-        skill2Btn.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { combatSystem.performSkill(player.getEntity(), enemy.getEntity(), heavySmash); }});
+        skill2Btn.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { combatSystem.performSkill(player.getEntity(), enemy.getEntity(), doubleSlash); }});
         ultimateBtn.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { combatSystem.performSkill(player.getEntity(), enemy.getEntity(), ultimate); }});
-        guardBtn.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { combatSystem.performDefensiveSkill(player.getEntity(), "Guard", 1, 0, 1.5f); }});
+        guardBtn.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { combatSystem.performSkill(player.getEntity(), null, guard); }});
         passTurnBtn.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { combatSystem.nextTurn(); }});
         
         updateLabels();
@@ -347,13 +410,13 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         
         if (attackBtn != null) {
             updateButtonText(skill1Btn, "Quick Strike (1 AP)", pab, "Quick Strike");
-            updateButtonText(skill2Btn, "Heavy Smash (2 AP, CD: 1)", pab, "Heavy Smash");
+            updateButtonText(skill2Btn, "Double Slash (2 AP, CD: 1)", pab, "Double Slash");
             updateButtonText(ultimateBtn, "ULTIMATE (4 AP, CD: 3)", pab, "ULTIMATE");
 
             if (combatSystem.getActiveEntity() == player.getEntity() && !combatSystem.isCombatEnded() && !isShowingLog) {
                 attackBtn.setDisabled(pa.currentAP < 1);
                 skill1Btn.setDisabled(pa.currentAP < 1 || !pab.isReady("Quick Strike"));
-                skill2Btn.setDisabled(pa.currentAP < 2 || !pab.isReady("Heavy Smash"));
+                skill2Btn.setDisabled(pa.currentAP < 2 || !pab.isReady("Double Slash"));
                 ultimateBtn.setDisabled(pa.currentAP < 4 || !pab.isReady("ULTIMATE"));
                 guardBtn.setDisabled(pa.currentAP < 1);
                 passTurnBtn.setDisabled(false);
@@ -385,12 +448,12 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         TextButton button = new TextButton(text, VisUI.getSkin());
         button.addListener(new InputListener() {
             @Override
-            public void enter(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, Actor fromActor) {
+            public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
                 if (!button.isDisabled()) button.setColor(Color.LIGHT_GRAY);
             }
 
             @Override
-            public void exit(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, Actor toActor) {
+            public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
                 button.setColor(Color.WHITE);
             }
         });
@@ -419,17 +482,44 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         addLogMessage(message);
     }
 
-    @Override public void onUpdateUI() {}
+    @Override public void onUpdateUI() {
+    }
+
+    @Override
+    public void onAnimationRequested(Entity attacker, Entity target, String animationName) {
+        Actor targetActor = (target == player.getEntity()) ? playerSide : enemySide;
+        Actor attackerActor = (attacker == player.getEntity()) ? playerSide : enemySide;
+        
+        // Dash and Shake Effects for all attacks
+        if (attacker != target) {
+            // Attacker dashes towards target
+            float dashDist = 40f;
+            if (attackerActor == playerSide) dashDist = -40f; // Player dashes left
+            attackerActor.addAction(Actions.sequence(
+                Actions.moveBy(dashDist, 0, 0.1f),
+                Actions.moveBy(-dashDist, 0, 0.1f)
+            ));
+            
+            // Target shakes upon impact
+            targetActor.addAction(Actions.sequence(
+                Actions.moveBy(10, 0, 0.05f),
+                Actions.moveBy(-20, 0, 0.05f),
+                Actions.moveBy(10, 0, 0.05f)
+            ));
+        }
+
+        if (animationName != null && animationFrames.containsKey(animationName)) {
+            Array<Texture> frames = animationFrames.get(animationName);
+            AnimationEffect effect = new AnimationEffect(frames, 0.05f);
+            activeAnimations.add(new ActiveAnimation(effect, targetActor));
+        }
+    }
 
     @Override
     public void onCombatEnded(boolean playerWon) {
         this.playerWonLast = playerWon;
         this.combatJustEnded = true;
-        
-        // Cooldowns and HP reset are handled when reading the last log message
-        // or immediately if no messages. But let's add the message.
         addLogMessage(playerWon ? "Victory! All enemies defeated." : "Defeat... You were overwhelmed.");
-        
         player.healFull();
     }
 
@@ -437,6 +527,12 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
     public void dispose() {
         super.dispose();
         if (slimeTexture != null) slimeTexture.dispose();
+        for (Array<Texture> frames : animationFrames.values()) {
+            for (Texture t : frames) t.dispose();
+        }
+        for (Texture t : entityTextures.values()) {
+            t.dispose();
+        }
     }
 
     @Override
@@ -449,6 +545,24 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
     public void render(float delta) {
         updateLabels();
         super.render(delta);
+        
+        stage.getBatch().begin();
+        for (int i = activeAnimations.size - 1; i >= 0; i--) {
+            ActiveAnimation aa = activeAnimations.get(i);
+            aa.effect.update(delta);
+            if (aa.effect.isFinished()) {
+                activeAnimations.removeIndex(i);
+            } else {
+                TextureRegion frame = aa.effect.getKeyFrame();
+                Vector2 pos = new Vector2(aa.anchor.getWidth() / 2, aa.anchor.getHeight() / 2);
+                aa.anchor.localToStageCoordinates(pos);
+                float drawW = frame.getRegionWidth() * 2;
+                float drawH = frame.getRegionHeight() * 2;
+                stage.getBatch().draw(frame, pos.x - drawW/2, pos.y - drawH/2, drawW, drawH);
+            }
+        }
+        stage.getBatch().end();
+        
         engine.update(delta);
     }
 }
