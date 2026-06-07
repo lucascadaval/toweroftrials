@@ -1,43 +1,43 @@
 package game.toweoftrials.screens;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
-import com.badlogic.gdx.utils.Array;
 import com.kotcrab.vis.ui.VisUI;
 import game.toweoftrials.Main;
-import game.toweoftrials.model.Enemy;
 
-public class HubScreen extends BaseScreen {
+public class StartMenuScreen extends BaseScreen {
 
-    public HubScreen(Main game) {
+    public StartMenuScreen(Main game) {
         super(game);
 
-        root.add(new Label("TOWER OF TRIALS", VisUI.getSkin())).pad(20).row();
+        Label title = new Label("TOWER OF TRIALS", VisUI.getSkin());
+        title.setFontScale(2.0f); // Make the main title bigger
+        root.add(title).pad(50).row();
 
-        for (int i = 1; i <= 8; i++) {
-            final int floor = i;
-            TextButton floorButton = createStyledButton("Floor " + i);
-
-            floorButton.addListener(new ChangeListener() {
-                @Override
-                public void changed(ChangeEvent event, Actor actor) {
-                    game.setScreen(new FloorMenuScreen(game, floor));
-                }
-            });
-
-            root.add(floorButton).width(300).pad(5).row();
-        }
-
-        TextButton backButton = createStyledButton("BACK TO MENU");
-        backButton.addListener(new ChangeListener() {
+        TextButton playButton = createStyledButton("START GAME");
+        playButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                game.setScreen(new StartMenuScreen(game));
+                game.setScreen(new HubScreen(game));
             }
         });
-        root.add(backButton).width(300).pad(20).row();
+
+        TextButton exitButton = createStyledButton("EXIT GAME");
+        exitButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                Gdx.app.exit();
+            }
+        });
+
+        float btnWidth = 350;
+        root.add(playButton).width(btnWidth).pad(10).row();
+        root.add(exitButton).width(btnWidth).pad(10).row();
+        
+        root.add(new Label("C64 Edition - 2026", VisUI.getSkin())).padTop(100);
     }
 
     private TextButton createStyledButton(String text) {

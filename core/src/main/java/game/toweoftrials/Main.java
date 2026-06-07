@@ -8,7 +8,7 @@ import com.badlogic.ashley.core.Entity;
 import com.kotcrab.vis.ui.VisUI;
 import game.toweoftrials.ecs.HeroManager;
 import game.toweoftrials.ecs.components.*;
-import game.toweoftrials.screens.HubScreen;
+import game.toweoftrials.screens.StartMenuScreen;
 
 /** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
 public class Main extends Game {
@@ -27,11 +27,12 @@ public class Main extends Game {
         hero.add(new BattleComponent(true));
         hero.add(new AbilitiesComponent());
         hero.add(new LevelComponent());
-        hero.add(new VisualComponent("player/hero_fighter.png"));
+        hero.add(new VisualComponent("player/hero_player.png"));
         HeroManager.setHero(hero);
 
-        setScreen(new HubScreen(this));
+        setScreen(new StartMenuScreen(this));
     }
+
 
     @Override
     public void dispose () {
