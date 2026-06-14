@@ -7,6 +7,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
@@ -16,6 +17,7 @@ import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.ProgressBar;
+import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
@@ -35,6 +37,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
     
     private final int floor;
     private final Array<Array<String>> waveMonsterIds;
+    private final boolean isBossBattle;
     private int currentWaveIndex;
     private final Drawable white;
     private final Texture backgroundTexture;
@@ -51,7 +54,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
     private ProgressBar playerHealthBar;
     private final Array<ProgressBar> enemyHealthBars = new Array<>();
     
-    private Table actionArea, inventoryArea, equipmentArea, combatArea;
+    private Table actionArea, combatArea, headerArea;
     private Table playerSide, enemySide;
     
     private TextButton attackBtn, passTurnBtn, fleeBtn;
@@ -63,6 +66,8 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
     
     private Skill selectedSkill = null;
     private boolean isTargeting = false;
+    private boolean isSelectingSkill = false;
+    private boolean introFinished = false;
 
     private final ObjectMap<String, Array<Texture>> animationFrames = new ObjectMap<>();
     private final Array<ActiveAnimation> activeAnimations = new Array<>();
@@ -74,13 +79,12 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         ActiveAnimation(AnimationEffect effect, Actor anchor) { this.effect = effect; this.anchor = anchor; }
     }
 
-    private final Skill basicAttack = new Skill("Attack", Skill.SkillType.OFFENSIVE, 1, 0, 1.0f, "double_slash");
-
     public BattleScreen(Main game, int floor, Array<Array<String>> waveMonsterIds) {
         super(game);
         this.floor = floor;
         this.waveMonsterIds = waveMonsterIds;
         this.currentWaveIndex = 0;
+        this.isBossBattle = waveMonsterIds.size == 1 && MonsterRegistry.get(waveMonsterIds.get(0).get(0)).type == Enemy.EnemyType.BOSS;
         this.white = VisUI.getSkin().getDrawable("white");
         this.backgroundTexture = new Texture(Gdx.files.internal("background/Dungeon_Poison.png"));
         
@@ -95,21 +99,65 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         setupUI();
         
         engine.update(0);
+        
+        if (isBossBattle) {
+            triggerBossDialogue();
+        }
+        
+        introFinished = true;
         combatSystem.resetCombat();
+    }
+
+    private void triggerBossDialogue() {
+        boolean firstTime = !game.hasMetBoss(floor);
+        String dialogue = getBossDialogue(floor, firstTime);
+        addLogMessage(dialogue);
+        game.markBossMet(floor);
+    }
+
+    private String getBossDialogue(int floor, boolean firstTime) {
+        if (firstTime) {
+            switch (floor) {
+                case 1: return "3HEAD SLUG: Fresh meat falls from the ceiling... My heads haven't shared a meal in centuries!";
+                case 2: return "3EYE MONSTER: I have seen your birth, your sins, and now... I see your end.";
+                case 3: return "OCTOPUS SUMMONER: The sea is so cold... Stay with me, hero. Let the waves take your breath away.";
+                case 4: return "PLAGUE DOCTOR: Your pulse is... irregular. Don't worry, my scalpel is precise. I'll make you immortal on these pages.";
+                case 5: return "OGRE: NO TALK. ONLY CRUSH. THE TOWER WANTS YOUR BONES!";
+                case 6: return "REPTILE WARRIOR: There is no honor in this swamp, only the strong and the dead. Draw your steel.";
+                case 7: return "UNDEAD MAGE: Can you hear them? The whispers of everyone you've failed? Join them in my halls.";
+                case 8: return "THE LICH: Welcome to the end of the world. Let’s see if you can burn bright enough to end this cycle.";
+                default: return "GUARDIAN: You shall not pass.";
+            }
+        } else {
+            switch (floor) {
+                case 1: return "3HEAD SLUG: Back for more? My stomachs are still growling from the last time I crushed you!";
+                case 2: return "3EYE MONSTER: Persistence is a predictable trait. I've already seen how this battle ends.";
+                case 3: return "OCTOPUS SUMMONER: You escaped my embrace once. I won't be so lonely after I drown you this time.";
+                case 4: return "PLAGUE DOCTOR: A patient that refuses to stay down? Let's try a more... radical surgery.";
+                case 5: return "OGRE: LITTLE THING STILL BREATHES? OGRE BREAK BREATH NOW!";
+                case 6: return "REPTILE WARRIOR: You learned nothing from our last duel. A warrior who repeats mistakes is already dead.";
+                case 7: return "UNDEAD MAGE: The mansion has many rooms for souls like yours. Why do you struggle against the inevitable?";
+                case 8: return "THE LICH: Eternity is a long time to wait for a worthy foe. Did the previous death teach you anything?";
+                default: return "GUARDIAN: Again? Your soul is stubborn.";
+            }
+        }
     }
 
     private void loadSkillAnimations() {
         Array<Texture> frames = new Array<>();
-        for (int i = 1; i <= 10; i++) {
-            frames.add(new Texture(Gdx.files.internal("skills/double_slash/warrior_skill1_frame" + i + ".png")));
+        for (int i = 1; i <= 5; i++) {
+            frames.add(new Texture(Gdx.files.internal("skills/impactvfx/VFXimpact3_frame" + i + ".png")));
         }
-        animationFrames.put("double_slash", frames);
+        animationFrames.put("impactvfx", frames);
     }
 
     private void setupPlayer() {
         this.player = HeroManager.getPlayer();
         if (player.getEntity().getComponent(VisualComponent.class) == null) {
-            player.getEntity().add(new VisualComponent("player/hero_player.png")); 
+            player.getEntity().add(new VisualComponent("player/img.png")); 
+        }
+        if (player.getEntity().getComponent(StatusComponent.class) == null) {
+            player.getEntity().add(new StatusComponent());
         }
         engine.addEntity(player.getEntity());
     }
@@ -132,6 +180,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
             enemyEntity.add(new BattleComponent(false));
             enemyEntity.add(new AbilitiesComponent());
             enemyEntity.add(new VisualComponent(data.texturePath));
+            enemyEntity.add(new StatusComponent());
             engine.addEntity(enemyEntity);
             enemies.add(new Enemy(enemyEntity, data.type));
         }
@@ -139,66 +188,42 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
 
     private void setupUI() {
         root.clear();
-        float w = Gdx.graphics.getWidth();
-        float h = Gdx.graphics.getHeight();
+        Image background = new Image(backgroundTexture);
+        background.setFillParent(true);
+        root.addActor(background);
+
+        Table uiTable = new Table();
+        uiTable.setFillParent(true);
+        root.addActor(uiTable);
+
+        headerArea = new Table();
+        headerArea.setBackground(VisUI.getSkin().getDrawable("window"));
+        uiTable.add(headerArea).top().pad(10).row();
         
-        Table topRow = new Table();
-        Table bottomRow = new Table();
-        
-        equipmentArea = new Table();
         combatArea = new Table();
+        uiTable.add(combatArea).grow().row();
+        
         actionArea = new Table();
-        inventoryArea = new Table();
-
-        equipmentArea.setBackground(VisUI.getSkin().getDrawable("window"));
-        combatArea.setBackground(new TextureRegionDrawable(new TextureRegion(backgroundTexture)));
-
         actionArea.setBackground(VisUI.getSkin().getDrawable("window"));
-        inventoryArea.setBackground(VisUI.getSkin().getDrawable("window"));
+        uiTable.add(actionArea).height(Gdx.graphics.getHeight() * 0.45f).growX();
 
-        topRow.add(combatArea).width(w * 0.7f).growY();
-        topRow.add(equipmentArea).width(w * 0.3f).growY();
-        bottomRow.add(actionArea).width(w * 0.7f).growY();
-        bottomRow.add(inventoryArea).width(w * 0.3f).growY();
-
-        root.add(topRow).height(h * 0.6f).growX().row();
-        root.add(bottomRow).height(h * 0.4f).growX();
-
-        setupEquipmentUI();
+        setupHeaderUI();
         setupCombatUI();
         setupActionUI();
-        setupInventoryUI();
         
         updateLabels();
     }
 
-    private void setupEquipmentUI() {
-        equipmentArea.clear();
-        equipmentArea.add(new Label("EQUIPMENT", VisUI.getSkin())).pad(5).row();
-        equipmentArea.add(createEquipSlot("Weapon")).pad(2).row();
-        equipmentArea.add(createEquipSlot("Armor")).pad(2).row();
-        equipmentArea.add(createEquipSlot("Accessory")).pad(2).row();
-    }
-
-    private Table createEquipSlot(String name) {
-        Table slot = new Table();
-        Image icon = new Image(white); icon.setColor(Color.DARK_GRAY);
-        slot.add(icon).size(32).pad(5);
-        slot.add(new Label(name, VisUI.getSkin())).left();
-        return slot;
+    private void setupHeaderUI() {
+        headerArea.clear();
+        String titleStr = "FLOOR " + floor + (waveMonsterIds.size > 1 ? " - WAVE " + (currentWaveIndex + 1) + "/" + waveMonsterIds.size : "");
+        headerArea.add(new Label(titleStr, VisUI.getSkin())).pad(10);
     }
 
     private void setupCombatUI() {
-        combatArea.clearChildren();
-        
-        String titleStr = "FLOOR " + floor + (waveMonsterIds.size > 1 ? " (Wave " + (currentWaveIndex + 1) + "/" + waveMonsterIds.size + ")" : "");
-        Label titleLabel = new Label(titleStr, VisUI.getSkin());
-        titleLabel.setAlignment(Align.center);
-        combatArea.add(titleLabel).colspan(2).pad(5).top().expandX().row();
-
+        combatArea.clear();
         Table battleLayout = new Table();
         
-        // Enemies Side (Left) - Triangular Formation
         enemySide = new Table();
         if (enemies.size == 1) {
             enemySide.add(createEntityTable(enemies.get(0), Color.RED)).center();
@@ -206,7 +231,6 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
             enemySide.add(createEntityTable(enemies.get(0), Color.RED)).pad(10).row();
             enemySide.add(createEntityTable(enemies.get(1), Color.RED)).pad(10);
         } else {
-            // 3 enemies: 2 back (left), 1 front (right)
             Table backCol = new Table();
             backRow(backCol, 0, 1);
             enemySide.add(backCol).padRight(40);
@@ -260,17 +284,17 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         t.add(img).size(isPlayer ? 80 : 110).pad(5).row();
         
         if (isPlayer) {
-            t.add(new Label(ge.getName(), VisUI.getSkin())).row(); // idx 1
-            t.add(new Label("", VisUI.getSkin())).row(); // Level - idx 2
-            t.add(new Label("", VisUI.getSkin())).row(); // HP Numeric - idx 3
+            t.add(new Label(ge.getName(), VisUI.getSkin())).row(); 
+            t.add(new Label("", VisUI.getSkin())).row(); 
+            t.add(new Label("", VisUI.getSkin())).row(); 
         }
 
         ProgressBar hpBar = new ProgressBar(0, ge.getStats().maxHp, 1, false, VisUI.getSkin());
         hpBar.setValue(ge.getStats().hp);
-        t.add(hpBar).width(120).pad(2).row(); // idx 4 (player) or 1 (enemy)
+        t.add(hpBar).width(120).pad(2).row(); 
         
         if (isPlayer) {
-            t.add(new Label("", VisUI.getSkin())).row(); // AP - idx 5
+            t.add(new Label("", VisUI.getSkin())).row(); 
         } else {
             enemyHealthBars.add(hpBar);
         }
@@ -294,6 +318,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         actionArea.clearListeners();
         if (isShowingLog && logMessageQueue.size > 0) showLogUI();
         else if (combatJustEnded) showEndCombatUI();
+        else if (isSelectingSkill) showSkillsUI();
         else showButtonsUI();
     }
 
@@ -302,7 +327,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         String message = logMessageQueue.first();
         Label msgLabel = new Label(message, VisUI.getSkin());
         msgLabel.setWrap(true); msgLabel.setAlignment(Align.center);
-        actionArea.add(msgLabel).width(500).growY().center().row();
+        actionArea.add(msgLabel).width(600).growY().center().row();
         actionArea.add(new Label("(Click here to continue...)", VisUI.getSkin())).pad(10).bottom();
         actionArea.setTouchable(Touchable.enabled);
         actionArea.addListener(new InputListener() {
@@ -318,9 +343,11 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         if (logMessageQueue.size == 0) {
             isShowingLog = false;
             if (escaped) {
-                game.setScreen(new FloorMenuScreen(game, floor));
+                player.healFull();
+                game.setScreen(new HubScreen(game));
                 return;
             }
+
             setupActionUI();
             Entity active = combatSystem.getActiveEntity();
             if (active != null) {
@@ -337,19 +364,19 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         actionArea.add(new Label(isTargeting ? "SELECT A TARGET" : "ACTIONS", VisUI.getSkin())).pad(10).row();
         Table buttons = new Table();
         
-        attackBtn = createStyledButton("Attack (1 AP)");
+        attackBtn = createStyledButton("Attack");
         fleeBtn = createStyledButton("Flee (2 AP)");
         passTurnBtn = createStyledButton("Pass Turn");
 
-        float btnWidth = 320;
+        float btnWidth = 350;
         float pad = 10;
-        buttons.add(attackBtn).width(btnWidth).pad(pad).row();
-        buttons.add(fleeBtn).width(btnWidth).pad(pad).row();
-        buttons.add(passTurnBtn).width(btnWidth).pad(pad).row();
-        actionArea.add(buttons).grow();
+        buttons.add(attackBtn).width(btnWidth).pad(pad);
+        buttons.add(fleeBtn).width(btnWidth).pad(pad);
+        buttons.add(passTurnBtn).width(btnWidth).pad(pad);
+        actionArea.add(buttons).grow().center();
 
         attackBtn.addListener(new ChangeListener() {
-            @Override public void changed(ChangeEvent event, Actor actor) { selectedSkill = basicAttack; isTargeting = true; setupActionUI(); }
+            @Override public void changed(ChangeEvent event, Actor actor) { isSelectingSkill = true; setupActionUI(); }
         });
         fleeBtn.addListener(new ChangeListener() {
             @Override public void changed(ChangeEvent event, Actor actor) {
@@ -367,11 +394,78 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         updateLabels();
     }
 
+    private void showSkillsUI() {
+        actionArea.clear();
+        actionArea.add(new Label("SELECT A SKILL AND A TARGET", VisUI.getSkin())).pad(5).row();
+        
+        Table main = new Table();
+        Table listTable = new Table();
+        ScrollPane scroll = new ScrollPane(listTable, VisUI.getSkin());
+        scroll.setFadeScrollBars(false);
+
+        final Table detailArea = new Table();
+        detailArea.setBackground(VisUI.getSkin().getDrawable("window"));
+
+        AbilitiesComponent ac = player.getEntity().getComponent(AbilitiesComponent.class);
+        for (final Skill skill : ac.skills) {
+            TextButton btn = createStyledButton(skill.getName());
+            boolean canUse = am.get(player.getEntity()).currentAP >= skill.getApCost() && ac.isReady(skill.getName());
+            if (!canUse) {
+                btn.setDisabled(true);
+                updateButtonFontColor(btn);
+            }
+            btn.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    selectedSkill = skill;
+                    if (skill.getType() == Skill.SkillType.DEFENSIVE || skill.getType() == Skill.SkillType.HEAL) {
+                        isTargeting = false;
+                        executeSkill(player.getEntity()); // Auto-target self
+                    } else {
+                        isTargeting = true;
+                        showSkillDetail(detailArea, skill);
+                    }
+                }
+            });
+            listTable.add(btn).width(250).pad(2).row();
+        }
+
+        TextButton backBtn = createStyledButton("Back");
+        backBtn.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                isSelectingSkill = false;
+                isTargeting = false;
+                selectedSkill = null;
+                setupActionUI();
+            }
+        });
+        listTable.add(backBtn).width(250).padTop(10);
+
+        main.add(scroll).width(300).growY().pad(10);
+        main.add(detailArea).grow().pad(10);
+        actionArea.add(main).grow();
+    }
+
+    private void showSkillDetail(Table area, final Skill skill) {
+        area.clear();
+        area.add(new Label(skill.getName().toUpperCase(), VisUI.getSkin())).pad(10).row();
+        Label desc = new Label(skill.getDescription(), VisUI.getSkin());
+        desc.setWrap(true); desc.setAlignment(Align.center);
+        area.add(desc).width(300).pad(10).row();
+        
+        Table stats = new Table();
+        stats.add(new Label("Cost: " + skill.getApCost() + " AP", VisUI.getSkin())).pad(5).row();
+        stats.add(new Label("Cooldown: " + skill.getCooldown() + " turns", VisUI.getSkin())).pad(5).row();
+        area.add(stats).pad(10).row();
+    }
+
     private void executeSkill(Entity target) {
         if (selectedSkill != null) {
             combatSystem.performSkill(player.getEntity(), target, selectedSkill);
             isTargeting = false;
             selectedSkill = null;
+            isSelectingSkill = false; // Close skill menu after use
             setupActionUI();
         }
     }
@@ -379,20 +473,110 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
     private void showEndCombatUI() {
         actionArea.clear();
         actionArea.add(new Label(playerWonLast ? "BATTLE WON" : "BATTLE LOST", VisUI.getSkin())).pad(10).row();
+        
+        if (playerWonLast) {
+            processRewards();
+        }
+
         if (playerWonLast && currentWaveIndex < waveMonsterIds.size - 1) {
             TextButton nextBtn = createStyledButton("Next Battle");
             nextBtn.addListener(new ChangeListener() {
                 @Override public void changed(ChangeEvent event, Actor actor) {
-                    currentWaveIndex++; combatJustEnded = false; setupNextWave(); setupUI(); combatSystem.resetCombat();
+                    currentWaveIndex++; combatJustEnded = false; setupNextWave(); 
+                    setupHeaderUI(); setupCombatUI(); combatSystem.resetCombat();
                 }
             });
             actionArea.add(nextBtn).width(200);
         } else {
             TextButton returnBtn = createStyledButton("Return");
             returnBtn.addListener(new ChangeListener() {
-                @Override public void changed(ChangeEvent event, Actor actor) { game.setScreen(new FloorMenuScreen(game, floor)); }
+                @Override public void changed(ChangeEvent event, Actor actor) { game.setScreen(new HubScreen(game)); }
             });
             actionArea.add(returnBtn).width(200);
+        }
+    }
+
+    private void processRewards() {
+        int roll = MathUtils.random(1, 100);
+        int threshold = 15;
+        if (isBossBattle) threshold = 100;
+        else if (currentWaveIndex == 1) threshold = 30;
+        else if (currentWaveIndex == 2) threshold = 50;
+
+        if (roll <= threshold) {
+            String itemStr = getFloorItem();
+            Item item = ItemRegistry.get(itemStr);
+            if (item != null) {
+                player.addItem(item);
+                addLogMessage("LOOT: Found " + item.getName() + "!");
+            }
+        }
+
+        AbilitiesComponent ac = player.getEntity().getComponent(AbilitiesComponent.class);
+        if (isBossBattle && !game.isBossCleared(floor)) {
+            String sName = getBossSkillName();
+            Skill s = SkillRegistry.get(sName);
+            if (s != null && !hasSkill(ac, sName)) {
+                ac.skills.add(s);
+                game.markBossCleared(floor);
+                addLogMessage("UNLOCKED: New Skill '" + sName + "'!");
+            }
+        } else if (!isBossBattle && currentWaveIndex == waveMonsterIds.size - 1 && !game.isDungeonCleared(floor)) {
+            String sName = getDungeonSkillName();
+            Skill s = SkillRegistry.get(sName);
+            if (s != null && !hasSkill(ac, sName)) {
+                ac.skills.add(s);
+                game.markDungeonCleared(floor);
+                addLogMessage("UNLOCKED: New Skill '" + sName + "'!");
+            }
+        }
+        game.saveGame();
+    }
+
+    private boolean hasSkill(AbilitiesComponent ac, String name) {
+        for (Skill s : ac.skills) if (s.getName().equals(name)) return true;
+        return false;
+    }
+
+    private String getFloorItem() {
+        switch (floor) {
+            case 1: return MathUtils.randomBoolean() ? "Thick Slime Robe" : "Rusted Gremlin Blade";
+            case 2: return "Piercing Gaze Rapier";
+            case 3: return "Sharp Chitin Scimitar";
+            case 4: return "Plague Doctor's Scalpel";
+            case 5: return "Giant Ogre Fang";
+            case 6: return "Swamp Light Katana";
+            case 7: return "Black Marble Sword";
+            case 8: return "Knight's Soul Blade";
+            default: return "Oxidized Copper Ring";
+        }
+    }
+
+    private String getDungeonSkillName() {
+        switch (floor) {
+            case 1: return "Slime Skin";
+            case 2: return "Hidden Vision";
+            case 3: return "Abyssal Shell";
+            case 4: return "Incandescent Pages";
+            case 5: return "Lethal Stinger";
+            case 6: return "Cold-Blooded Stance";
+            case 7: return "Phantasmal Howl";
+            case 8: return "Bone Prison";
+            default: return "";
+        }
+    }
+
+    private String getBossSkillName() {
+        switch (floor) {
+            case 1: return "Acid Spit";
+            case 2: return "Abyssal Gaze";
+            case 3: return "Crushing Tentacles";
+            case 4: return "Plague Miasma";
+            case 5: return "Primal Fury";
+            case 6: return "Shogun's Shadow Slash";
+            case 7: return "Ectoplasmic Drain";
+            case 8: return "Soul Reaper";
+            default: return "";
         }
     }
 
@@ -425,9 +609,16 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
 
         if (attackBtn != null) {
             if (combatSystem.getActiveEntity() == player.getEntity() && !combatSystem.isCombatEnded() && !isShowingLog) {
-                attackBtn.setDisabled(pa.currentAP < 1);
+                AbilitiesComponent ac = player.getEntity().getComponent(AbilitiesComponent.class);
+                boolean canAny = false;
+                for (Skill s : ac.skills) if (pa.currentAP >= s.getApCost() && ac.isReady(s.getName())) canAny = true;
+                
+                attackBtn.setDisabled(!canAny);
                 fleeBtn.setDisabled(pa.currentAP < 2);
                 passTurnBtn.setDisabled(false);
+                updateButtonFontColor(attackBtn);
+                updateButtonFontColor(fleeBtn);
+                updateButtonFontColor(passTurnBtn);
             } else {
                 disableActions();
             }
@@ -436,35 +627,31 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
 
     private void disableActions() {
         if (attackBtn == null) return;
-        attackBtn.setDisabled(true); passTurnBtn.setDisabled(true);
-        if(fleeBtn != null) fleeBtn.setDisabled(true);
+        attackBtn.setDisabled(true); fleeBtn.setDisabled(true); passTurnBtn.setDisabled(true);
+        updateButtonFontColor(attackBtn); updateButtonFontColor(fleeBtn); updateButtonFontColor(passTurnBtn);
     }
 
     private TextButton createStyledButton(String text) {
         TextButton button = new TextButton(text, VisUI.getSkin());
-        button.addListener(new InputListener() {
+        button.setColor(Color.WHITE);
+        updateButtonFontColor(button);
+
+        button.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
             @Override
-            public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-                if (!button.isDisabled()) button.setColor(Color.LIGHT_GRAY);
+            public void enter(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, Actor fromActor) {
+                if (!button.isDisabled()) button.getLabel().setColor(Color.WHITE);
             }
             @Override
-            public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
-                button.setColor(Color.WHITE);
+            public void exit(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, Actor toActor) {
+                updateButtonFontColor(button);
             }
         });
         return button;
     }
 
-    private void setupInventoryUI() {
-        inventoryArea.clear();
-        inventoryArea.add(new Label("INVENTORY", VisUI.getSkin())).pad(5).row();
-        Table grid = new Table();
-        for(int i=0; i<12; i++) {
-            Image item = new Image(white); item.setColor(Color.GRAY);
-            grid.add(item).size(32).pad(2);
-            if((i+1)%3 == 0) grid.row();
-        }
-        inventoryArea.add(grid).grow();
+    private void updateButtonFontColor(TextButton button) {
+        if (button.isDisabled()) button.getLabel().setColor(Color.GRAY);
+        else button.getLabel().setColor(Color.LIGHT_GRAY);
     }
 
     @Override public void onTurnStarted(Entity entity) { addLogMessage("It's " + sm.get(entity).name + "'s turn!"); }

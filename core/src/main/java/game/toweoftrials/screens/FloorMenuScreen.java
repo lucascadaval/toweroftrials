@@ -7,6 +7,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Array;
 import com.kotcrab.vis.ui.VisUI;
 import game.toweoftrials.Main;
+import game.toweoftrials.model.Enemy;
 
 public class FloorMenuScreen extends BaseScreen {
     private final int floor;
@@ -34,7 +35,7 @@ public class FloorMenuScreen extends BaseScreen {
             }
         });
 
-        TextButton backButton = createStyledButton("Back to Hub");
+        TextButton backButton = createStyledButton("Back to Tower");
         backButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -132,16 +133,25 @@ public class FloorMenuScreen extends BaseScreen {
 
     private TextButton createStyledButton(String text) {
         TextButton button = new TextButton(text, VisUI.getSkin());
+        button.setColor(com.badlogic.gdx.graphics.Color.WHITE); 
+
+        updateButtonFontColor(button);
+
         button.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
             @Override
             public void enter(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, Actor fromActor) {
-                if (!button.isDisabled()) button.setColor(com.badlogic.gdx.graphics.Color.LIGHT_GRAY);
+                if (!button.isDisabled()) button.getLabel().setColor(com.badlogic.gdx.graphics.Color.WHITE);
             }
             @Override
             public void exit(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, Actor toActor) {
-                button.setColor(com.badlogic.gdx.graphics.Color.WHITE);
+                updateButtonFontColor(button);
             }
         });
         return button;
+    }
+
+    private void updateButtonFontColor(TextButton button) {
+        if (button.isDisabled()) button.getLabel().setColor(com.badlogic.gdx.graphics.Color.GRAY);
+        else button.getLabel().setColor(com.badlogic.gdx.graphics.Color.LIGHT_GRAY);
     }
 }

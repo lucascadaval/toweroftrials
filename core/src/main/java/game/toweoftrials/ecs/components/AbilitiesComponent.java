@@ -1,9 +1,14 @@
 package game.toweoftrials.ecs.components;
 
 import com.badlogic.ashley.core.Component;
+import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ObjectMap;
+import game.toweoftrials.model.Skill;
 
 public class AbilitiesComponent implements Component {
+    // List of skills this entity can perform
+    public Array<Skill> skills = new Array<>();
+    
     // Stores currently active cooldowns: Skill Name -> Remaining Turns
     public ObjectMap<String, Integer> currentCooldowns = new ObjectMap<>();
 
