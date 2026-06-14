@@ -5,6 +5,7 @@ import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.EntitySystem;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.utils.ImmutableArray;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.utils.Array;
 import game.toweoftrials.ecs.components.*;
 import game.toweoftrials.model.Skill;
@@ -31,6 +32,7 @@ public class CombatSystem extends EntitySystem {
         void onCombatEnded(boolean playerWon);
         void onUpdateUI();
         void onAnimationRequested(Entity attacker, Entity target, String animationName);
+        void onFloatingTextRequested(Entity target, String text, Color color);
     }
 
     public CombatSystem(CombatListener listener) {
@@ -132,7 +134,7 @@ public class CombatSystem extends EntitySystem {
             if (effect.type == StatusComponent.EffectType.POISON || effect.type == StatusComponent.EffectType.BURN) {
                 int damage = (int) (stats.maxHp * effect.value);
                 stats.hp = Math.max(0, stats.hp - damage);
-                listener.onActionResolved(stats.name + " took " + damage + " " + effect.type + " damage!");
+                listener.onFloatingTextRequested(entity, "-" + damage, effect.type == StatusComponent.EffectType.POISON ? Color.LIME : Color.ORANGE);
                 if (stats.hp <= 0) {
                     bm.get(entity).isDead = true;
                     listener.onActionResolved(stats.name + " succumbed to " + effect.type + "!");
@@ -185,10 +187,6 @@ public class CombatSystem extends EntitySystem {
         applySkillAction(attacker, target, skill);
         listener.onUpdateUI();
         checkCombatEnd();
-        if (!combatEnded && skill.getApCost() > 0 && am.get(attacker).currentAP <= 0) {
-            // Player used up all AP - wait for user to pass turn or auto-pass? 
-            // The UI handles this, so we just return success.
-        }
         return true;
     }
 
@@ -233,22 +231,21 @@ public class CombatSystem extends EntitySystem {
     private void applySkillAction(Entity attacker, Entity target, Skill skill) {
         StatsComponent a = sm.get(attacker);
         StatsComponent t = sm.get(target);
-        StatusComponent st = stm.get(target);
 
         if (skill.getType() == Skill.SkillType.HEAL) {
             int heal = (int) (a.attack * skill.getMultiplier());
             t.hp = Math.min(t.maxHp, t.hp + heal);
-            listener.onActionResolved("Healed " + t.name + " for " + heal + " HP!");
+            listener.onFloatingTextRequested(target, "+" + heal, Color.GREEN);
         } else if (skill.getType() == Skill.SkillType.DEFENSIVE) {
             int shield = (int) (a.defense * skill.getMultiplier());
             a.shield += shield;
-            listener.onActionResolved(a.name + " gained " + shield + " shield!");
+            listener.onFloatingTextRequested(attacker, "GUARD +" + shield, Color.CYAN);
         } else {
             // OFFENSIVE
             int damage = (int) (a.attack * skill.getMultiplier());
             if (skill.detonatePoison && stm.get(target).hasEffect(StatusComponent.EffectType.POISON)) {
                 damage *= 2;
-                listener.onActionResolved("POISON DETONATED!");
+                listener.onFloatingTextRequested(target, "DETONATE!", Color.YELLOW);
             }
             
             int finalDmg = skill.ignoreDef ? damage : Math.max(1, damage - t.defense);
@@ -257,14 +254,15 @@ public class CombatSystem extends EntitySystem {
                 int abs = Math.min(t.shield, finalDmg);
                 t.shield -= abs;
                 finalDmg -= abs;
+                listener.onFloatingTextRequested(target, "ABSORBED!", Color.GRAY);
             }
             
             t.hp = Math.max(0, t.hp - finalDmg);
-            listener.onActionResolved(t.name + " took " + finalDmg + " damage!");
+            listener.onFloatingTextRequested(target, "-" + finalDmg, Color.RED);
 
             if (skill.lifesteal) {
                 a.hp = Math.min(a.maxHp, a.hp + finalDmg);
-                listener.onActionResolved(a.name + " leeched " + finalDmg + " HP!");
+                listener.onFloatingTextRequested(attacker, "+" + finalDmg, Color.GREEN);
             }
 
             if (t.hp <= 0) {
@@ -280,7 +278,7 @@ public class CombatSystem extends EntitySystem {
             StatusComponent targetSt = (skill.getType() == Skill.SkillType.DEFENSIVE || skill.getType() == Skill.SkillType.HEAL) ? stm.get(attacker) : stm.get(target);
             if (targetSt != null) {
                 targetSt.addEffect(skill.statusType, skill.statusDuration, skill.statusValue, skill.getName());
-                listener.onActionResolved("Applied " + skill.statusType + "!");
+                listener.onFloatingTextRequested(targetSt == stm.get(attacker) ? attacker : target, skill.statusType.name(), Color.GOLD);
             }
         }
         
@@ -288,12 +286,10 @@ public class CombatSystem extends EntitySystem {
     }
 
     public boolean performHealSkill(Entity attacker, Entity target, String actionName, int apCost, int cooldown, float multiplier) {
-        // Redundant with performSkill, but keeping for compatibility if needed elsewhere
         return false;
     }
 
     public boolean performAttack(Entity attacker, Entity target, String actionName, int apCost, int apGain, int cooldown, float multiplier) {
-        // This was the old way, but now it's absorbed into applySkillAction for modularity
         Skill s = new Skill(actionName, "", Skill.SkillType.OFFENSIVE, apCost, cooldown, multiplier, "impactvfx");
         return executeSingleTargetSkill(attacker, target, s);
     }

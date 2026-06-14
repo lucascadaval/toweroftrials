@@ -26,6 +26,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ObjectMap;
+import com.badlogic.gdx.utils.Timer;
 import com.kotcrab.vis.ui.VisUI;
 import game.toweoftrials.Main;
 import game.toweoftrials.ecs.CombatSystem;
@@ -63,6 +64,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
     private boolean combatJustEnded = false;
     private boolean playerWonLast = false;
     private boolean escaped = false;
+    private boolean rewardsProcessed = false;
     
     private Skill selectedSkill = null;
     private boolean isTargeting = false;
@@ -72,6 +74,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
     private final ObjectMap<String, Array<Texture>> animationFrames = new ObjectMap<>();
     private final Array<ActiveAnimation> activeAnimations = new Array<>();
     private final ObjectMap<String, Texture> entityTextures = new ObjectMap<>();
+    private final ObjectMap<Entity, Integer> textQueueCount = new ObjectMap<>();
 
     private static class ActiveAnimation {
         AnimationEffect effect;
@@ -111,7 +114,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
     private void triggerBossDialogue() {
         boolean firstTime = !game.hasMetBoss(floor);
         String dialogue = getBossDialogue(floor, firstTime);
-        addLogMessage(dialogue);
+        addLogMessage(dialogue, true); 
         game.markBossMet(floor);
     }
 
@@ -349,14 +352,36 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
             }
 
             setupActionUI();
-            Entity active = combatSystem.getActiveEntity();
-            if (active != null) {
-                 BattleComponent bc = active.getComponent(BattleComponent.class);
-                 if (bc != null && !bc.isDead && !bc.isPlayer && !combatSystem.isCombatEnded()) {
-                     combatSystem.executeOneAIAction();
-                 }
-            }
-        } else showLogUI();
+            checkAndExecuteAI();
+        } else {
+            showLogUI();
+            scheduleAutoProceed();
+        }
+    }
+
+    private void scheduleAutoProceed() {
+        boolean isBlocking = combatJustEnded || (isBossBattle && !introFinished);
+        if (!isBlocking && logMessageQueue.size > 0) {
+            Timer.schedule(new Timer.Task() {
+                @Override public void run() {
+                    if (isShowingLog && logMessageQueue.size > 0) proceedLog();
+                }
+            }, 2.5f);
+        }
+    }
+
+    private void checkAndExecuteAI() {
+        Entity active = combatSystem.getActiveEntity();
+        if (active != null) {
+             BattleComponent bc = active.getComponent(BattleComponent.class);
+             if (bc != null && !bc.isDead && !bc.isPlayer && !combatSystem.isCombatEnded()) {
+                 Timer.schedule(new Timer.Task() {
+                     @Override public void run() {
+                         combatSystem.executeOneAIAction();
+                     }
+                 }, 0.8f);
+             }
+        }
     }
 
     private void showButtonsUI() {
@@ -384,13 +409,16 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
                 if (pa.currentAP >= 2) {
                     pa.currentAP -= 2;
                     escaped = true;
-                    addLogMessage("Escaped from battle!");
+                    addLogMessage("Escaped from battle!", true);
                 } else {
-                    addLogMessage("Not enough AP to flee!");
+                    addLogMessage("Not enough AP to flee!", false);
                 }
             }
         });
-        passTurnBtn.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { combatSystem.nextTurn(); }});
+        passTurnBtn.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { 
+            combatSystem.nextTurn();
+            Timer.schedule(new Timer.Task() { @Override public void run() { checkAndExecuteAI(); } }, 0.2f);
+        }});
         updateLabels();
     }
 
@@ -420,7 +448,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
                     selectedSkill = skill;
                     if (skill.getType() == Skill.SkillType.DEFENSIVE || skill.getType() == Skill.SkillType.HEAL) {
                         isTargeting = false;
-                        executeSkill(player.getEntity()); // Auto-target self
+                        executeSkill(player.getEntity()); 
                     } else {
                         isTargeting = true;
                         showSkillDetail(detailArea, skill);
@@ -465,8 +493,22 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
             combatSystem.performSkill(player.getEntity(), target, selectedSkill);
             isTargeting = false;
             selectedSkill = null;
-            isSelectingSkill = false; // Close skill menu after use
+            isSelectingSkill = false; 
             setupActionUI();
+            
+            // Auto-pass turn if AP is 0
+            APComponent pa = am.get(player.getEntity());
+            if (pa.currentAP <= 0 && !combatSystem.isCombatEnded()) {
+                addLogMessage("AP Depleted! Ending turn...", false);
+                Timer.schedule(new Timer.Task() {
+                    @Override public void run() {
+                        combatSystem.nextTurn();
+                        Timer.schedule(new Timer.Task() { @Override public void run() { checkAndExecuteAI(); } }, 0.5f);
+                    }
+                }, 1.5f);
+            } else {
+                Timer.schedule(new Timer.Task() { @Override public void run() { checkAndExecuteAI(); } }, 1.0f);
+            }
         }
     }
 
@@ -474,15 +516,11 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         actionArea.clear();
         actionArea.add(new Label(playerWonLast ? "BATTLE WON" : "BATTLE LOST", VisUI.getSkin())).pad(10).row();
         
-        if (playerWonLast) {
-            processRewards();
-        }
-
         if (playerWonLast && currentWaveIndex < waveMonsterIds.size - 1) {
             TextButton nextBtn = createStyledButton("Next Battle");
             nextBtn.addListener(new ChangeListener() {
                 @Override public void changed(ChangeEvent event, Actor actor) {
-                    currentWaveIndex++; combatJustEnded = false; setupNextWave(); 
+                    currentWaveIndex++; combatJustEnded = false; rewardsProcessed = false; setupNextWave(); 
                     setupHeaderUI(); setupCombatUI(); combatSystem.resetCombat();
                 }
             });
@@ -498,17 +536,17 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
 
     private void processRewards() {
         int roll = MathUtils.random(1, 100);
-        int threshold = 15;
+        int threshold = 20;
         if (isBossBattle) threshold = 100;
-        else if (currentWaveIndex == 1) threshold = 30;
-        else if (currentWaveIndex == 2) threshold = 50;
+        else if (currentWaveIndex == 1) threshold = 40;
+        else if (currentWaveIndex == 2) threshold = 60;
 
         if (roll <= threshold) {
             String itemStr = getFloorItem();
             Item item = ItemRegistry.get(itemStr);
             if (item != null) {
                 player.addItem(item);
-                addLogMessage("LOOT: Found " + item.getName() + "!");
+                addLogMessage("LOOT: Found " + item.getName() + "!", false);
             }
         }
 
@@ -519,7 +557,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
             if (s != null && !hasSkill(ac, sName)) {
                 ac.skills.add(s);
                 game.markBossCleared(floor);
-                addLogMessage("UNLOCKED: New Skill '" + sName + "'!");
+                addLogMessage("UNLOCKED: New Skill '" + sName + "'!", false);
             }
         } else if (!isBossBattle && currentWaveIndex == waveMonsterIds.size - 1 && !game.isDungeonCleared(floor)) {
             String sName = getDungeonSkillName();
@@ -527,7 +565,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
             if (s != null && !hasSkill(ac, sName)) {
                 ac.skills.add(s);
                 game.markDungeonCleared(floor);
-                addLogMessage("UNLOCKED: New Skill '" + sName + "'!");
+                addLogMessage("UNLOCKED: New Skill '" + sName + "'!", false);
             }
         }
         game.saveGame();
@@ -540,16 +578,20 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
 
     private String getFloorItem() {
         switch (floor) {
-            case 1: return MathUtils.randomBoolean() ? "Thick Slime Robe" : "Rusted Gremlin Blade";
-            case 2: return "Piercing Gaze Rapier";
-            case 3: return "Sharp Chitin Scimitar";
-            case 4: return "Plague Doctor's Scalpel";
-            case 5: return "Giant Ogre Fang";
-            case 6: return "Swamp Light Katana";
-            case 7: return "Black Marble Sword";
-            case 8: return "Knight's Soul Blade";
+            case 1: return selectRandom("Thick Slime Robe", "Toxic Bubble Amulet", "Rusted Gremlin Blade", "Oxidized Copper Ring", "Drenched Cloth Hood", "Battered Manhole Cover");
+            case 2: return selectRandom("Slit Pupil Ring", "Stitched Eyelid Aegis", "Fallen Angel Tear Pendant", "Mask of Multiple Glances", "Demonic Observer Mantle", "Piercing Gaze Rapier");
+            case 3: return selectRandom("Sharp Chitin Scimitar", "Abyssal Tide Ring", "Reinforced Chitin Shield", "Jagged Coral Helmet", "Deep Sea Choker", "Salty Scale Cuirass");
+            case 4: return selectRandom("Toxic Blossom Ring", "Petrified Tome", "Ash and Frost Reliquary", "Ancient Leather Robes", "Crow Beak Mask", "Plague Doctor's Scalpel");
+            case 5: return selectRandom("Cobra Scale Breastplate", "Lethal Stinger Ring", "Hive Queen Amber Amulet", "Old Warrior Shield", "Crawling Beast Skull", "Giant Ogre Fang");
+            case 6: return selectRandom("Fallen Comet Ring", "Swamp Light Katana", "Mammoth Ivory Kabuto", "Reptilian Plate Shield", "Cold-Blooded O-Yoroi", "Ancient Shogun Medalion");
+            case 7: return selectRandom("Black Marble Sword", "Cursed Family Shield", "Phantom Roar Ring", "Fierce Shadows Hood", "Bloodstained Silver Necklace", "Mage's Ectoplasmic Tailcoat");
+            case 8: return selectRandom("Eternal Bone Shroud", "Perpetual Void Ring", "Knight's Soul Blade", "Desecrated Ribcage Barricade", "Reliquary of Chained Souls", "Lich King Crown");
             default: return "Oxidized Copper Ring";
         }
+    }
+
+    private String selectRandom(String... items) {
+        return items[MathUtils.random(items.length - 1)];
     }
 
     private String getDungeonSkillName() {
@@ -654,8 +696,11 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         else button.getLabel().setColor(Color.LIGHT_GRAY);
     }
 
-    @Override public void onTurnStarted(Entity entity) { addLogMessage("It's " + sm.get(entity).name + "'s turn!"); }
-    @Override public void onActionResolved(String message) { addLogMessage(message); }
+    @Override public void onTurnStarted(Entity entity) { 
+        if (entity == player.getEntity()) addLogMessage("It's YOUR turn!", false);
+        else addLogMessage("It's " + sm.get(entity).name + "'s turn!", false);
+    }
+    @Override public void onActionResolved(String message) { addLogMessage(message, false); }
     @Override public void onUpdateUI() {}
 
     @Override
@@ -676,6 +721,26 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         }
     }
 
+    @Override
+    public void onFloatingTextRequested(Entity target, String text, Color color) {
+        Actor actor = findActorForEntity(target);
+        if (actor == null) return;
+
+        final Label label = new Label(text, VisUI.getSkin());
+        label.setColor(color);
+        label.setFontScale(1.4f);
+        
+        Vector2 pos = new Vector2(actor.getWidth() / 2, actor.getHeight());
+        actor.localToStageCoordinates(pos);
+        label.setPosition(pos.x - label.getWidth()/2, pos.y);
+        
+        stage.addActor(label);
+        label.addAction(Actions.sequence(
+            Actions.parallel(Actions.moveBy(0, 120, 2.5f), Actions.fadeOut(2.5f)),
+            Actions.removeActor()
+        ));
+    }
+
     private Actor findActorForEntity(Entity e) {
         if (e == player.getEntity()) return playerSide;
         for (int i=0; i<enemies.size; i++) {
@@ -690,14 +755,27 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         return null;
     }
 
-    private void addLogMessage(String msg) {
+    private void addLogMessage(String msg, boolean block) {
         logMessageQueue.add(msg);
-        if (!isShowingLog) { isShowingLog = true; setupActionUI(); }
+        if (!isShowingLog) {
+            isShowingLog = true;
+            setupActionUI();
+            if (!block) {
+                scheduleAutoProceed();
+            }
+        }
     }
 
     @Override public void onCombatEnded(boolean playerWon) {
-        this.playerWonLast = playerWon; this.combatJustEnded = true;
-        addLogMessage(playerWon ? "Victory! All enemies defeated." : "Defeat... You were overwhelmed.");
+        this.playerWonLast = playerWon; 
+        this.combatJustEnded = true;
+        
+        if (playerWon && !rewardsProcessed) {
+            processRewards();
+            rewardsProcessed = true;
+        }
+        
+        addLogMessage(playerWon ? "Victory! All enemies defeated." : "Defeat... You were overwhelmed.", true);
         player.healFull();
     }
 
