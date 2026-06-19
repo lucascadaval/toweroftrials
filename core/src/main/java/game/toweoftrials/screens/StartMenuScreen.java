@@ -16,6 +16,13 @@ public class StartMenuScreen extends BaseScreen {
         super(game);
         AudioManager.playMusic("menu");
 
+        com.badlogic.gdx.graphics.Texture bgTexture = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("background/main_menu_background.png"));
+        com.badlogic.gdx.scenes.scene2d.ui.Image bgImage = new com.badlogic.gdx.scenes.scene2d.ui.Image(bgTexture);
+        bgImage.setScaling(com.badlogic.gdx.utils.Scaling.fill);
+        bgImage.setFillParent(true);
+        stage.addActor(bgImage);
+        bgImage.setZIndex(0); // Ensure it's behind the root table
+
         Label title = new Label("TOWER OF TRIALS", VisUI.getSkin());
         title.setFontScale(2.0f); // Make the main title bigger
         root.add(title).pad(50).row();
@@ -59,7 +66,7 @@ public class StartMenuScreen extends BaseScreen {
             }
         });
         root.add(exitButton).width(btnWidth).pad(10).row();
-        
+
         root.add(new Label("C64 Edition - 2026", VisUI.getSkin())).padTop(100);
     }
 

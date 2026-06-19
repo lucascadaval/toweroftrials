@@ -22,6 +22,15 @@ public abstract class BaseScreen implements Screen {
         stage.addActor(root);
     }
 
+    protected void setBackground(String texturePath) {
+        com.badlogic.gdx.graphics.Texture bgTexture = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal(texturePath));
+        com.badlogic.gdx.scenes.scene2d.ui.Image bgImage = new com.badlogic.gdx.scenes.scene2d.ui.Image(bgTexture);
+        bgImage.setScaling(com.badlogic.gdx.utils.Scaling.fill);
+        bgImage.setFillParent(true);
+        stage.addActor(bgImage);
+        bgImage.setZIndex(0);
+    }
+
     @Override
     public void show() {
         Gdx.input.setInputProcessor(stage);

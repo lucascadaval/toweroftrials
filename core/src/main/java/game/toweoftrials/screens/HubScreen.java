@@ -13,6 +13,7 @@ public class HubScreen extends BaseScreen {
 
     public HubScreen(final Main game) {
         super(game);
+        setBackground("background/hub_background.png");
         AudioManager.playMusic("menu");
         
         root.add(new Label("TOWER OF TRIALS", VisUI.getSkin())).pad(20).row();

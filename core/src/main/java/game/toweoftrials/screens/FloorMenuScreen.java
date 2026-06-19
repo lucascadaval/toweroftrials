@@ -14,6 +14,7 @@ public class FloorMenuScreen extends BaseScreen {
 
     public FloorMenuScreen(Main game, int floor) {
         super(game);
+        setBackground("background/hub_background.png");
         this.floor = floor;
 
         String floorName = getFloorName(floor);

@@ -286,7 +286,7 @@ public class CombatSystem extends EntitySystem {
                 listener.onFloatingTextRequested(target, "DETONATE!", Color.YELLOW);
             }
             
-            int finalDmg = skill.ignoreDef ? damage : Math.max(1, damage - t.defense);
+            int finalDmg = skill.ignoreDef ? damage : Math.max(1, (int) (damage * (100f / (100f + t.defense))));
             
             if (t.shield > 0) {
                 int abs = Math.min(t.shield, finalDmg);
@@ -363,10 +363,10 @@ public class CombatSystem extends EntitySystem {
         if (pl.canLevelUp()) {
             pl.levelUp();
             StatsComponent ps = sm.get(playerEntity);
-            ps.maxHp += 20;
+            ps.maxHp += 15;
             ps.hp = ps.maxHp; 
-            ps.attack += 5;
-            ps.defense += 3;
+            ps.attack += 3;
+            ps.defense += 2;
             ps.speed += 2;
             listener.onActionResolved("LEVEL UP! Reached Level " + pl.level + "!");
         }
