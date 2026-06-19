@@ -28,36 +28,49 @@ public class SaveManager {
         public Array<Integer> clearedDungeons = new Array<>();
         public Array<Integer> clearedBosses = new Array<>();
         public Array<Integer> metBosses = new Array<>();
+        public float musicVolume = 0.5f;
+        public float soundVolume = 1.0f;
     }
 
-    public static void saveGame(int highestFloor, Array<Integer> clearedDungeons, Array<Integer> clearedBosses, Array<Integer> metBosses) {
-        Player player = HeroManager.getPlayer();
-        SaveData data = new SaveData();
-        
-        LevelComponent lc = player.getLevel();
-        data.level = lc.level;
-        data.currentXp = lc.currentXp;
-        data.xpToNextLevel = lc.xpToNextLevel;
-        
-        StatsComponent sc = player.getStats();
-        data.maxHp = sc.maxHp;
-        data.attack = sc.attack;
-        data.defense = sc.defense;
-        data.speed = sc.speed;
-        
-        for (Item item : player.getInventory()) {
-            data.inventoryItemNames.add(item.getName());
-        }
-        
-        for (Item.ItemType type : Item.ItemType.values()) {
-            Item equipped = player.getEquipped(type);
-            if (equipped != null) data.equippedItemNames.add(equipped.getName());
+    public static void saveGame(int highestFloor, Array<Integer> clearedDungeons, Array<Integer> clearedBosses, Array<Integer> metBosses, float musicVolume, float soundVolume) {
+        SaveData data;
+        if (hasSave()) {
+            data = loadGame();
+            if (data == null) data = new SaveData();
+        } else {
+            data = new SaveData();
         }
 
-        AbilitiesComponent ac = player.getEntity().getComponent(AbilitiesComponent.class);
-        if (ac != null) {
-            for (Skill s : ac.skills) {
-                data.unlockedSkillNames.add(s.getName());
+        Player player = HeroManager.getPlayer();
+        if (player != null) {
+            LevelComponent lc = player.getLevel();
+            data.level = lc.level;
+            data.currentXp = lc.currentXp;
+            data.xpToNextLevel = lc.xpToNextLevel;
+            
+            StatsComponent sc = player.getStats();
+            data.maxHp = sc.maxHp;
+            data.attack = sc.attack;
+            data.defense = sc.defense;
+            data.speed = sc.speed;
+            
+            data.inventoryItemNames.clear();
+            for (Item item : player.getInventory()) {
+                data.inventoryItemNames.add(item.getName());
+            }
+            
+            data.equippedItemNames.clear();
+            for (Item.ItemType type : Item.ItemType.values()) {
+                Item equipped = player.getEquipped(type);
+                if (equipped != null) data.equippedItemNames.add(equipped.getName());
+            }
+
+            AbilitiesComponent ac = player.getEntity().getComponent(AbilitiesComponent.class);
+            if (ac != null) {
+                data.unlockedSkillNames.clear();
+                for (Skill s : ac.skills) {
+                    data.unlockedSkillNames.add(s.getName());
+                }
             }
         }
         
@@ -65,6 +78,8 @@ public class SaveManager {
         data.clearedDungeons.addAll(clearedDungeons);
         data.clearedBosses.addAll(clearedBosses);
         data.metBosses.addAll(metBosses);
+        data.musicVolume = musicVolume;
+        data.soundVolume = soundVolume;
 
         Preferences prefs = Gdx.app.getPreferences(PREFS_NAME);
         prefs.putString(SAVE_KEY, json.toJson(data));

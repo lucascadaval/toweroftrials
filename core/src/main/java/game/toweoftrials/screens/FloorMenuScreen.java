@@ -131,27 +131,5 @@ public class FloorMenuScreen extends BaseScreen {
         return wave;
     }
 
-    private TextButton createStyledButton(String text) {
-        TextButton button = new TextButton(text, VisUI.getSkin());
-        button.setColor(com.badlogic.gdx.graphics.Color.WHITE); 
 
-        updateButtonFontColor(button);
-
-        button.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
-            @Override
-            public void enter(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, Actor fromActor) {
-                if (!button.isDisabled()) button.getLabel().setColor(com.badlogic.gdx.graphics.Color.WHITE);
-            }
-            @Override
-            public void exit(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, Actor toActor) {
-                updateButtonFontColor(button);
-            }
-        });
-        return button;
-    }
-
-    private void updateButtonFontColor(TextButton button) {
-        if (button.isDisabled()) button.getLabel().setColor(com.badlogic.gdx.graphics.Color.GRAY);
-        else button.getLabel().setColor(com.badlogic.gdx.graphics.Color.LIGHT_GRAY);
-    }
 }

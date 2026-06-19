@@ -29,6 +29,7 @@ import com.badlogic.gdx.utils.ObjectMap;
 import com.badlogic.gdx.utils.Timer;
 import com.kotcrab.vis.ui.VisUI;
 import game.toweoftrials.Main;
+import game.toweoftrials.utils.AudioManager;
 import game.toweoftrials.ecs.CombatSystem;
 import game.toweoftrials.ecs.HeroManager;
 import game.toweoftrials.ecs.components.*;
@@ -105,6 +106,9 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         
         if (isBossBattle) {
             triggerBossDialogue();
+            AudioManager.playMusic("boss");
+        } else {
+            AudioManager.playMusic("dungeon");
         }
         
         introFinished = true;
@@ -435,6 +439,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
                 if (pa.currentAP >= 2) {
                     pa.currentAP -= 2;
                     escaped = true;
+                    AudioManager.playSound("flee");
                     addLogMessage("Escaped from battle!", true);
                 } else {
                     addLogMessage("Not enough AP to flee!", false);
@@ -731,28 +736,6 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         updateButtonFontColor(attackBtn); updateButtonFontColor(fleeBtn); updateButtonFontColor(passTurnBtn);
     }
 
-    private TextButton createStyledButton(String text) {
-        TextButton button = new TextButton(text, VisUI.getSkin());
-        button.setColor(Color.WHITE);
-        updateButtonFontColor(button);
-
-        button.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
-            @Override
-            public void enter(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, Actor fromActor) {
-                if (!button.isDisabled()) button.getLabel().setColor(Color.WHITE);
-            }
-            @Override
-            public void exit(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, Actor toActor) {
-                updateButtonFontColor(button);
-            }
-        });
-        return button;
-    }
-
-    private void updateButtonFontColor(TextButton button) {
-        if (button.isDisabled()) button.getLabel().setColor(Color.GRAY);
-        else button.getLabel().setColor(Color.LIGHT_GRAY);
-    }
 
     @Override public void onTurnStarted(Entity entity) { 
         if (entity == player.getEntity()) {

@@ -15,6 +15,7 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Scaling;
 import com.kotcrab.vis.ui.VisUI;
 import game.toweoftrials.Main;
+import game.toweoftrials.utils.AudioManager;
 import game.toweoftrials.ecs.HeroManager;
 import game.toweoftrials.model.Item;
 import game.toweoftrials.model.Player;
@@ -176,8 +177,13 @@ public class InventoryScreen extends BaseScreen {
         actionBtn.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                if (isEquipped) player.unequipItem(item.getType());
-                else player.equipItem(item);
+                if (isEquipped) {
+                    player.unequipItem(item.getType());
+                    AudioManager.playSound("unequip");
+                } else {
+                    player.equipItem(item);
+                    AudioManager.playSound("equip");
+                }
                 refreshList();
                 showDetails(item);
             }
@@ -185,30 +191,7 @@ public class InventoryScreen extends BaseScreen {
         detailArea.add(actionBtn).width(200).pad(20);
     }
 
-    private TextButton createStyledButton(String text) {
-        TextButton button = new TextButton(text, VisUI.getSkin());
-        button.setColor(Color.WHITE); // Ensure background is bright
 
-        // Initial text color setup
-        updateButtonFontColor(button);
-
-        button.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
-            @Override
-            public void enter(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, Actor fromActor) {
-                if (!button.isDisabled()) button.getLabel().setColor(Color.WHITE);
-            }
-            @Override
-            public void exit(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, Actor toActor) {
-                updateButtonFontColor(button);
-            }
-        });
-        return button;
-    }
-
-    private void updateButtonFontColor(TextButton button) {
-        if (button.isDisabled()) button.getLabel().setColor(Color.GRAY);
-        else button.getLabel().setColor(Color.LIGHT_GRAY);
-    }
 
     @Override
     public void dispose() {

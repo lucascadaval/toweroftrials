@@ -263,12 +263,15 @@ public class CombatSystem extends EntitySystem {
             }
             t.hp = Math.min(t.maxHp, t.hp + heal);
             listener.onFloatingTextRequested(target, "+" + heal, Color.GREEN);
+            game.toweoftrials.utils.AudioManager.playSound("heal");
         } else if (skill.getType() == Skill.SkillType.DEFENSIVE) {
             int shield = (int) (a.defense * skill.getMultiplier());
             a.shield += shield;
             listener.onFloatingTextRequested(attacker, "GUARD +" + shield, Color.CYAN);
+            game.toweoftrials.utils.AudioManager.playSound("buff");
         } else {
             // OFFENSIVE
+            game.toweoftrials.utils.AudioManager.playSound("attack");
             float multiplier = skill.getMultiplier();
             boolean isCrit = false;
             float critChance = 0.05f + (aStatus != null ? aStatus.getEffectValue(StatusComponent.EffectType.CRIT_BUFF) : 0);
@@ -304,6 +307,7 @@ public class CombatSystem extends EntitySystem {
                 bm.get(target).isDead = true;
                 turnQueue.removeValue(target, true);
                 listener.onActionResolved(t.name + " was defeated!");
+                game.toweoftrials.utils.AudioManager.playSound("death");
                 if (bm.get(attacker).isPlayer) awardXp(attacker, target);
             }
         }

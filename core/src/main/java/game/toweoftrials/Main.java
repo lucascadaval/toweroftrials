@@ -13,6 +13,7 @@ import game.toweoftrials.model.*;
 import game.toweoftrials.screens.HubScreen;
 import game.toweoftrials.screens.StartMenuScreen;
 import game.toweoftrials.screens.IntroScreen;
+import game.toweoftrials.utils.AudioManager;
 import game.toweoftrials.utils.SaveManager;
 
 public class Main extends Game {
@@ -23,6 +24,13 @@ public class Main extends Game {
 
     @Override
     public void create () {
+        AudioManager.load();
+        SaveManager.SaveData data = SaveManager.loadGame();
+        if (data != null) {
+            AudioManager.setMusicVolume(data.musicVolume);
+            AudioManager.setSoundVolume(data.soundVolume);
+        }
+
         TextureAtlas atlas = new TextureAtlas(Gdx.files.internal("Commodore_64_UI_Skin/commodore64ui/uiskin.atlas"));
         Skin skin = new Skin(Gdx.files.internal("Commodore_64_UI_Skin/commodore64ui/uiskin.json"), atlas);
         VisUI.load(skin);
@@ -156,12 +164,13 @@ public class Main extends Game {
     }
     
     public void saveGame() {
-        SaveManager.saveGame(highestFloor, clearedDungeons, clearedBosses, metBosses);
+        SaveManager.saveGame(highestFloor, clearedDungeons, clearedBosses, metBosses, AudioManager.getMusicVolume(), AudioManager.getSoundVolume());
     }
 
     @Override
     public void dispose () {
         super.dispose();
         VisUI.dispose();
+        AudioManager.dispose();
     }
 }
