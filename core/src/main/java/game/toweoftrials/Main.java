@@ -47,6 +47,13 @@ public class Main extends Game {
             clearedDungeons.clear(); clearedDungeons.addAll(data.clearedDungeons);
             clearedBosses.clear(); clearedBosses.addAll(data.clearedBosses);
             metBosses.clear(); metBosses.addAll(data.metBosses);
+
+            // REPAIR LOGIC: Ensure highestFloor matches cleared bosses
+            for (int cf : clearedBosses) {
+                if (cf + 1 > highestFloor) highestFloor = cf + 1;
+            }
+            if (highestFloor > 8) highestFloor = 8;
+
             loadHeroFromSave(data);
             setScreen(new HubScreen(this));
         } else {
@@ -143,6 +150,7 @@ public class Main extends Game {
     public void markBossCleared(int floor) {
         if (!clearedBosses.contains(floor, true)) {
             clearedBosses.add(floor);
+            setHighestFloor(floor + 1); // Unlock next floor
             saveGame();
         }
     }

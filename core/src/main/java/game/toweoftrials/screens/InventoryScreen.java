@@ -62,7 +62,8 @@ public class InventoryScreen extends BaseScreen {
         detailArea = new Table();
         detailArea.setBackground(VisUI.getSkin().getDrawable("window"));
         
-        main.add(scroll).width(400).growY().pad(10);
+        // Rebalanced widths: more for list, less for detail to avoid horizontal scroll
+        main.add(scroll).width(550).growY().pad(10);
         main.add(detailArea).grow().pad(10);
         
         root.add(main).grow().row();
@@ -154,13 +155,13 @@ public class InventoryScreen extends BaseScreen {
         loadedTextures.add(tex);
         Image icon = new Image(tex);
         icon.setScaling(Scaling.fit);
-        detailArea.add(icon).size(128).pad(20).row();
+        detailArea.add(icon).size(96).pad(15).row();
         
         detailArea.add(new Label(item.getName(), VisUI.getSkin())).pad(5).row();
         Label desc = new Label(item.getDescription(), VisUI.getSkin());
         desc.setWrap(true);
         desc.setAlignment(Align.center);
-        detailArea.add(desc).width(300).pad(10).row();
+        detailArea.add(desc).width(240).pad(10).row();
         
         // Stats
         Table stats = new Table();

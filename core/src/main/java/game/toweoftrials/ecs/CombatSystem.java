@@ -6,6 +6,7 @@ import com.badlogic.ashley.core.EntitySystem;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.utils.ImmutableArray;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.Array;
 import game.toweoftrials.ecs.components.*;
 import game.toweoftrials.model.Skill;
@@ -63,6 +64,12 @@ public class CombatSystem extends EntitySystem {
                 turnQueue.add(e);
             }
         }
+        
+        if (turnQueue.size == 0) {
+            checkCombatEnd();
+            return;
+        }
+
         sortQueue();
         nextTurn();
     }
@@ -100,14 +107,17 @@ public class CombatSystem extends EntitySystem {
             return;
         }
 
-        processStatusEffects(activeEntity);
-        if (combatEnded) return;
+        tickDoTs(activeEntity);
+        if (combatEnded || bc.isDead) {
+            nextTurn();
+            return;
+        }
         
         StatusComponent st = stm.get(activeEntity);
         if (st != null) {
             if (st.hasEffect(StatusComponent.EffectType.STUN)) {
                 listener.onActionResolved(sm.get(activeEntity).name + " is stunned and skips turn!");
-                nextTurn();
+                endTurn(activeEntity);
                 return;
             }
         }
@@ -123,14 +133,17 @@ public class CombatSystem extends EntitySystem {
         listener.onTurnStarted(activeEntity);
     }
 
-    private void processStatusEffects(Entity entity) {
+    public void endTurn(Entity entity) {
+        decrementStatusDurations(entity);
+        nextTurn();
+    }
+
+    private void tickDoTs(Entity entity) {
         StatusComponent st = stm.get(entity);
         if (st == null) return;
         StatsComponent stats = sm.get(entity);
 
-        for (int i = st.activeEffects.size - 1; i >= 0; i--) {
-            StatusComponent.StatusEffect effect = st.activeEffects.get(i);
-            
+        for (StatusComponent.StatusEffect effect : st.activeEffects) {
             if (effect.type == StatusComponent.EffectType.POISON || effect.type == StatusComponent.EffectType.BURN) {
                 int damage = (int) (stats.maxHp * effect.value);
                 stats.hp = Math.max(0, stats.hp - damage);
@@ -139,15 +152,22 @@ public class CombatSystem extends EntitySystem {
                     bm.get(entity).isDead = true;
                     listener.onActionResolved(stats.name + " succumbed to " + effect.type + "!");
                     checkCombatEnd();
+                    return;
                 }
-            }
-
-            effect.duration--;
-            if (effect.duration <= 0) {
-                st.activeEffects.removeIndex(i);
             }
         }
         listener.onUpdateUI();
+    }
+
+    private void decrementStatusDurations(Entity entity) {
+        StatusComponent st = stm.get(entity);
+        if (st == null) return;
+        for (int i = st.activeEffects.size - 1; i >= 0; i--) {
+            st.activeEffects.get(i).duration--;
+            if (st.activeEffects.get(i).duration <= 0) {
+                st.activeEffects.removeIndex(i);
+            }
+        }
     }
 
     public void executeOneAIAction() {
@@ -157,7 +177,7 @@ public class CombatSystem extends EntitySystem {
         
         Entity player = getPlayer();
         if (player == null || bm.get(player).isDead) {
-            nextTurn();
+            endTurn(activeEntity);
             return;
         }
 
@@ -165,7 +185,7 @@ public class CombatSystem extends EntitySystem {
         listener.onAnimationRequested(activeEntity, player, null);
 
         if (!combatEnded) {
-            nextTurn(); 
+            endTurn(activeEntity); 
         }
     }
 
@@ -231,9 +251,16 @@ public class CombatSystem extends EntitySystem {
     private void applySkillAction(Entity attacker, Entity target, Skill skill) {
         StatsComponent a = sm.get(attacker);
         StatsComponent t = sm.get(target);
+        StatusComponent aStatus = stm.get(attacker);
+        StatusComponent tStatus = stm.get(target);
 
         if (skill.getType() == Skill.SkillType.HEAL) {
-            int heal = (int) (a.attack * skill.getMultiplier());
+            int heal = 0;
+            if (skill.percentHeal > 0) {
+                heal = (int) (t.maxHp * skill.percentHeal);
+            } else {
+                heal = (int) (a.attack * skill.getMultiplier());
+            }
             t.hp = Math.min(t.maxHp, t.hp + heal);
             listener.onFloatingTextRequested(target, "+" + heal, Color.GREEN);
         } else if (skill.getType() == Skill.SkillType.DEFENSIVE) {
@@ -242,8 +269,16 @@ public class CombatSystem extends EntitySystem {
             listener.onFloatingTextRequested(attacker, "GUARD +" + shield, Color.CYAN);
         } else {
             // OFFENSIVE
-            int damage = (int) (a.attack * skill.getMultiplier());
-            if (skill.detonatePoison && stm.get(target).hasEffect(StatusComponent.EffectType.POISON)) {
+            float multiplier = skill.getMultiplier();
+            boolean isCrit = false;
+            float critChance = 0.05f + (aStatus != null ? aStatus.getEffectValue(StatusComponent.EffectType.CRIT_BUFF) : 0);
+            if (MathUtils.random() < critChance) {
+                multiplier *= 1.5f;
+                isCrit = true;
+            }
+
+            int damage = (int) (a.attack * multiplier);
+            if (skill.detonatePoison && tStatus != null && tStatus.hasEffect(StatusComponent.EffectType.POISON)) {
                 damage *= 2;
                 listener.onFloatingTextRequested(target, "DETONATE!", Color.YELLOW);
             }
@@ -258,7 +293,7 @@ public class CombatSystem extends EntitySystem {
             }
             
             t.hp = Math.max(0, t.hp - finalDmg);
-            listener.onFloatingTextRequested(target, "-" + finalDmg, Color.RED);
+            listener.onFloatingTextRequested(target, (isCrit ? "CRIT! " : "") + "-" + finalDmg, isCrit ? Color.GOLD : Color.RED);
 
             if (skill.lifesteal) {
                 a.hp = Math.min(a.maxHp, a.hp + finalDmg);
@@ -273,12 +308,24 @@ public class CombatSystem extends EntitySystem {
             }
         }
 
-        // Apply Status Effect
+        // Apply Status Effect (Target)
         if (skill.statusType != null) {
             StatusComponent targetSt = (skill.getType() == Skill.SkillType.DEFENSIVE || skill.getType() == Skill.SkillType.HEAL) ? stm.get(attacker) : stm.get(target);
             if (targetSt != null) {
                 targetSt.addEffect(skill.statusType, skill.statusDuration, skill.statusValue, skill.getName());
                 listener.onFloatingTextRequested(targetSt == stm.get(attacker) ? attacker : target, skill.statusType.name(), Color.GOLD);
+                if (skill.statusType == StatusComponent.EffectType.SPD_DEBUFF || skill.statusType == StatusComponent.EffectType.SPD_BUFF) {
+                    sortQueue();
+                }
+            }
+        }
+
+        // Apply Status Effect (Self)
+        if (skill.selfStatusType != null) {
+            StatusComponent selfSt = stm.get(attacker);
+            if (selfSt != null) {
+                selfSt.addEffect(skill.selfStatusType, skill.selfStatusDuration, skill.selfStatusValue, skill.getName());
+                listener.onFloatingTextRequested(attacker, skill.selfStatusType.name(), Color.GOLD);
             }
         }
         
@@ -306,6 +353,7 @@ public class CombatSystem extends EntitySystem {
         
         int xpGained = enemyStats.attack + enemyStats.defense + (enemyStats.maxHp / 5);
         pl.addXp(xpGained);
+        listener.onFloatingTextRequested(playerEntity, "+" + xpGained + " XP", Color.GOLD);
         listener.onActionResolved("Gained " + xpGained + " XP!");
 
         if (pl.canLevelUp()) {
@@ -324,29 +372,34 @@ public class CombatSystem extends EntitySystem {
         if (combatEnded) return true;
         if (combatants == null || combatants.size() == 0) return false;
 
-        boolean playerAlive = false;
-        boolean enemiesAlive = false;
-        boolean playerFound = false;
+        int playersAlive = 0;
+        int enemiesAlive = 0;
+        int enemiesFound = 0;
 
         for (Entity e : combatants) {
             BattleComponent bc = bm.get(e);
-            if (bc.isPlayer) playerFound = true;
-            if (!bc.isDead) {
-                if (bc.isPlayer) playerAlive = true;
-                else enemiesAlive = true;
+            if (bc == null) continue;
+            
+            if (bc.isPlayer) {
+                if (!bc.isDead) playersAlive++;
+            } else {
+                enemiesFound++;
+                if (!bc.isDead) enemiesAlive++;
             }
         }
 
-        if (playerFound && !playerAlive) {
+        if (playersAlive == 0) {
             combatEnded = true;
             listener.onCombatEnded(false);
             return true;
         }
-        if (playerFound && !enemiesAlive) {
+
+        if (enemiesFound > 0 && enemiesAlive == 0) {
             combatEnded = true;
             listener.onCombatEnded(true);
             return true;
         }
+
         return false;
     }
 

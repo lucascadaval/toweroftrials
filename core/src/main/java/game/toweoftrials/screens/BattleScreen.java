@@ -51,7 +51,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
     private Player player;
     private final Array<Enemy> enemies = new Array<>();
     
-    private Label playerHPLabel, playerAPLabel, playerLevelLabel;
+    private Label playerHPLabel, playerAPLabel, playerLevelLabel, tickerLabel;
     private ProgressBar playerHealthBar;
     private final Array<ProgressBar> enemyHealthBars = new Array<>();
     
@@ -173,6 +173,19 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         enemies.clear();
         enemyHealthBars.clear();
 
+        // Prepare unique texture pools for each monster type in this wave
+        ObjectMap<String, Array<String>> variantPools = new ObjectMap<>();
+        for (String id : ids) {
+            if (!variantPools.containsKey(id)) {
+                MonsterData data = MonsterRegistry.get(id);
+                if (data != null) {
+                    Array<String> pool = new Array<>(data.texturePaths);
+                    pool.shuffle();
+                    variantPools.put(id, pool);
+                }
+            }
+        }
+
         for (String id : ids) {
             MonsterData data = MonsterRegistry.get(id);
             if (data == null) continue;
@@ -182,11 +195,22 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
             enemyEntity.add(new APComponent(0));
             enemyEntity.add(new BattleComponent(false));
             enemyEntity.add(new AbilitiesComponent());
-            enemyEntity.add(new VisualComponent(data.texturePath));
+            
+            // Pick a unique variant from the pool
+            Array<String> pool = variantPools.get(id);
+            String texturePath;
+            if (pool != null && pool.size > 0) {
+                texturePath = pool.removeIndex(0);
+            } else {
+                texturePath = data.texturePaths[0]; // Fallback
+            }
+            enemyEntity.add(new VisualComponent(texturePath));
+            
             enemyEntity.add(new StatusComponent());
             engine.addEntity(enemyEntity);
             enemies.add(new Enemy(enemyEntity, data.type));
         }
+        engine.update(0); 
     }
 
     private void setupUI() {
@@ -220,7 +244,9 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
     private void setupHeaderUI() {
         headerArea.clear();
         String titleStr = "FLOOR " + floor + (waveMonsterIds.size > 1 ? " - WAVE " + (currentWaveIndex + 1) + "/" + waveMonsterIds.size : "");
-        headerArea.add(new Label(titleStr, VisUI.getSkin())).pad(10);
+        tickerLabel = new Label(titleStr, VisUI.getSkin());
+        tickerLabel.setAlignment(Align.center);
+        headerArea.add(tickerLabel).pad(10).minWidth(500);
     }
 
     private void setupCombatUI() {
@@ -435,6 +461,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         detailArea.setBackground(VisUI.getSkin().getDrawable("window"));
 
         AbilitiesComponent ac = player.getEntity().getComponent(AbilitiesComponent.class);
+        int count = 0;
         for (final Skill skill : ac.skills) {
             TextButton btn = createStyledButton(skill.getName());
             boolean canUse = am.get(player.getEntity()).currentAP >= skill.getApCost() && ac.isReady(skill.getName());
@@ -447,16 +474,21 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
                 public void changed(ChangeEvent event, Actor actor) {
                     selectedSkill = skill;
                     if (skill.getType() == Skill.SkillType.DEFENSIVE || skill.getType() == Skill.SkillType.HEAL) {
-                        isTargeting = false;
-                        executeSkill(player.getEntity()); 
+                        isTargeting = true; 
+                        showSkillDetail(detailArea, skill);
+                        addLogMessage("SELECT YOURSELF TO CONFIRM", false);
                     } else {
                         isTargeting = true;
                         showSkillDetail(detailArea, skill);
                     }
                 }
             });
-            listTable.add(btn).width(250).pad(2).row();
+            listTable.add(btn).width(240).pad(2);
+            count++;
+            if (count % 2 == 0) listTable.row();
         }
+        
+        if (count % 2 != 0) listTable.row();
 
         TextButton backBtn = createStyledButton("Back");
         backBtn.addListener(new ChangeListener() {
@@ -468,9 +500,9 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
                 setupActionUI();
             }
         });
-        listTable.add(backBtn).width(250).padTop(10);
+        listTable.add(backBtn).width(240).colspan(2).padTop(10);
 
-        main.add(scroll).width(300).growY().pad(10);
+        main.add(scroll).width(500).growY().pad(10);
         main.add(detailArea).grow().pad(10);
         actionArea.add(main).grow();
     }
@@ -496,7 +528,6 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
             isSelectingSkill = false; 
             setupActionUI();
             
-            // Auto-pass turn if AP is 0
             APComponent pa = am.get(player.getEntity());
             if (pa.currentAP <= 0 && !combatSystem.isCombatEnded()) {
                 addLogMessage("AP Depleted! Ending turn...", false);
@@ -520,8 +551,18 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
             TextButton nextBtn = createStyledButton("Next Battle");
             nextBtn.addListener(new ChangeListener() {
                 @Override public void changed(ChangeEvent event, Actor actor) {
-                    currentWaveIndex++; combatJustEnded = false; rewardsProcessed = false; setupNextWave(); 
-                    setupHeaderUI(); setupCombatUI(); combatSystem.resetCombat();
+                    currentWaveIndex++;
+                    combatJustEnded = false;
+                    rewardsProcessed = false;
+                    isShowingLog = false;
+                    logMessageQueue.clear();
+                    
+                    setupNextWave(); 
+                    setupHeaderUI();
+                    setupCombatUI();
+                    
+                    combatSystem.resetCombat();
+                    setupActionUI();
                 }
             });
             actionArea.add(nextBtn).width(200);
@@ -543,23 +584,27 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
 
         if (roll <= threshold) {
             String itemStr = getFloorItem();
-            Item item = ItemRegistry.get(itemStr);
-            if (item != null) {
-                player.addItem(item);
-                addLogMessage("LOOT: Found " + item.getName() + "!", false);
+            if (itemStr != null) {
+                Item item = ItemRegistry.get(itemStr);
+                if (item != null) {
+                    player.addItem(item);
+                    addLogMessage("LOOT: Found " + item.getName() + "!", false);
+                }
             }
         }
 
         AbilitiesComponent ac = player.getEntity().getComponent(AbilitiesComponent.class);
         if (isBossBattle && !game.isBossCleared(floor)) {
+            game.markBossCleared(floor); // Always unlock next floor on first kill
+
             String sName = getBossSkillName();
             Skill s = SkillRegistry.get(sName);
             if (s != null && !hasSkill(ac, sName)) {
                 ac.skills.add(s);
-                game.markBossCleared(floor);
                 addLogMessage("UNLOCKED: New Skill '" + sName + "'!", false);
             }
-        } else if (!isBossBattle && currentWaveIndex == waveMonsterIds.size - 1 && !game.isDungeonCleared(floor)) {
+        }
+ else if (!isBossBattle && currentWaveIndex == waveMonsterIds.size - 1 && !game.isDungeonCleared(floor)) {
             String sName = getDungeonSkillName();
             Skill s = SkillRegistry.get(sName);
             if (s != null && !hasSkill(ac, sName)) {
@@ -578,20 +623,33 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
 
     private String getFloorItem() {
         switch (floor) {
-            case 1: return selectRandom("Thick Slime Robe", "Toxic Bubble Amulet", "Rusted Gremlin Blade", "Oxidized Copper Ring", "Drenched Cloth Hood", "Battered Manhole Cover");
-            case 2: return selectRandom("Slit Pupil Ring", "Stitched Eyelid Aegis", "Fallen Angel Tear Pendant", "Mask of Multiple Glances", "Demonic Observer Mantle", "Piercing Gaze Rapier");
-            case 3: return selectRandom("Sharp Chitin Scimitar", "Abyssal Tide Ring", "Reinforced Chitin Shield", "Jagged Coral Helmet", "Deep Sea Choker", "Salty Scale Cuirass");
-            case 4: return selectRandom("Toxic Blossom Ring", "Petrified Tome", "Ash and Frost Reliquary", "Ancient Leather Robes", "Crow Beak Mask", "Plague Doctor's Scalpel");
-            case 5: return selectRandom("Cobra Scale Breastplate", "Lethal Stinger Ring", "Hive Queen Amber Amulet", "Old Warrior Shield", "Crawling Beast Skull", "Giant Ogre Fang");
-            case 6: return selectRandom("Fallen Comet Ring", "Swamp Light Katana", "Mammoth Ivory Kabuto", "Reptilian Plate Shield", "Cold-Blooded O-Yoroi", "Ancient Shogun Medalion");
-            case 7: return selectRandom("Black Marble Sword", "Cursed Family Shield", "Phantom Roar Ring", "Fierce Shadows Hood", "Bloodstained Silver Necklace", "Mage's Ectoplasmic Tailcoat");
-            case 8: return selectRandom("Eternal Bone Shroud", "Perpetual Void Ring", "Knight's Soul Blade", "Desecrated Ribcage Barricade", "Reliquary of Chained Souls", "Lich King Crown");
-            default: return "Oxidized Copper Ring";
+            case 1: return selectUniqueRandom("Thick Slime Robe", "Toxic Bubble Amulet", "Rusted Gremlin Blade", "Oxidized Copper Ring", "Drenched Cloth Hood", "Battered Manhole Cover");
+            case 2: return selectUniqueRandom("Slit Pupil Ring", "Stitched Eyelid Aegis", "Fallen Angel Tear Pendant", "Mask of Multiple Glances", "Demonic Observer Mantle", "Piercing Gaze Rapier");
+            case 3: return selectUniqueRandom("Sharp Chitin Scimitar", "Abyssal Tide Ring", "Reinforced Chitin Shield", "Jagged Coral Helmet", "Deep Sea Choker", "Salty Scale Cuirass");
+            case 4: return selectUniqueRandom("Toxic Blossom Ring", "Petrified Tome", "Ash and Frost Reliquary", "Ancient Leather Robes", "Crow Beak Mask", "Plague Doctor's Scalpel");
+            case 5: return selectUniqueRandom("Cobra Scale Breastplate", "Lethal Stinger Ring", "Hive Queen Amber Amulet", "Old Warrior Shield", "Crawling Beast Skull", "Giant Ogre Fang");
+            case 6: return selectUniqueRandom("Fallen Comet Ring", "Swamp Light Katana", "Mammoth Ivory Kabuto", "Reptilian Plate Shield", "Cold-Blooded O-Yoroi", "Ancient Shogun Medalion");
+            case 7: return selectUniqueRandom("Black Marble Sword", "Cursed Family Shield", "Phantom Roar Ring", "Fierce Shadows Hood", "Bloodstained Silver Necklace", "Mage's Ectoplasmic Tailcoat");
+            case 8: return selectUniqueRandom("Eternal Bone Shroud", "Perpetual Void Ring", "Knight's Soul Blade", "Desecrated Ribcage Barricade", "Reliquary of Chained Souls", "Lich King Crown");
+            default: return null;
         }
     }
 
-    private String selectRandom(String... items) {
-        return items[MathUtils.random(items.length - 1)];
+    private String selectUniqueRandom(String... possibleItems) {
+        Array<String> pool = new Array<>();
+        for (String s : possibleItems) {
+            boolean owned = false;
+            for (Item invItem : player.getInventory()) {
+                if (invItem.getName().equals(s)) {
+                    owned = true;
+                    break;
+                }
+            }
+            if (!owned) pool.add(s);
+        }
+        
+        if (pool.size == 0) return null;
+        return pool.get(MathUtils.random(pool.size - 1));
     }
 
     private String getDungeonSkillName() {
@@ -697,8 +755,17 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
     }
 
     @Override public void onTurnStarted(Entity entity) { 
-        if (entity == player.getEntity()) addLogMessage("It's YOUR turn!", false);
-        else addLogMessage("It's " + sm.get(entity).name + "'s turn!", false);
+        if (entity == player.getEntity()) {
+            addLogMessage("It's YOUR turn!", false);
+        } else {
+            addLogMessage("It's " + sm.get(entity).name + "'s turn!", false);
+            // Since this is non-blocking, we MUST trigger the AI manually here
+            Timer.schedule(new Timer.Task() {
+                @Override public void run() {
+                    checkAndExecuteAI();
+                }
+            }, 1.0f);
+        }
     }
     @Override public void onActionResolved(String message) { addLogMessage(message, false); }
     @Override public void onUpdateUI() {}
@@ -723,8 +790,22 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
 
     @Override
     public void onFloatingTextRequested(Entity target, String text, Color color) {
+        int index = textQueueCount.get(target, 0);
+        textQueueCount.put(target, index + 1);
+
+        Timer.schedule(new Timer.Task() {
+            @Override public void run() {
+                showFloatingTextNow(target, text, color);
+                if (textQueueCount.containsKey(target)) {
+                    textQueueCount.put(target, Math.max(0, textQueueCount.get(target) - 1));
+                }
+            }
+        }, index * 0.6f);
+    }
+
+    private void showFloatingTextNow(Entity target, String text, Color color) {
         Actor actor = findActorForEntity(target);
-        if (actor == null) return;
+        if (actor == null || actor.getStage() == null) return;
 
         final Label label = new Label(text, VisUI.getSkin());
         label.setColor(color);
@@ -756,13 +837,21 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
     }
 
     private void addLogMessage(String msg, boolean block) {
+        if (!block) {
+            tickerLabel.setText(msg.toUpperCase());
+            tickerLabel.clearActions();
+            tickerLabel.addAction(Actions.sequence(
+                Actions.color(Color.WHITE),
+                Actions.delay(2.5f),
+                Actions.color(Color.LIGHT_GRAY, 0.5f)
+            ));
+            return;
+        }
+
         logMessageQueue.add(msg);
         if (!isShowingLog) {
             isShowingLog = true;
             setupActionUI();
-            if (!block) {
-                scheduleAutoProceed();
-            }
         }
     }
 
