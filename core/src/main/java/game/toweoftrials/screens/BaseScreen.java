@@ -2,10 +2,20 @@ package game.toweoftrials.screens;
 
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.Image;
+import com.badlogic.gdx.scenes.scene2d.ui.ImageTextButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.utils.Scaling;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.kotcrab.vis.ui.VisUI;
 import game.toweoftrials.Main;
 import game.toweoftrials.utils.AudioManager;
 
@@ -23,9 +33,9 @@ public abstract class BaseScreen implements Screen {
     }
 
     protected void setBackground(String texturePath) {
-        com.badlogic.gdx.graphics.Texture bgTexture = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal(texturePath));
-        com.badlogic.gdx.scenes.scene2d.ui.Image bgImage = new com.badlogic.gdx.scenes.scene2d.ui.Image(bgTexture);
-        bgImage.setScaling(com.badlogic.gdx.utils.Scaling.fill);
+        Texture bgTexture = new Texture(Gdx.files.internal(texturePath));
+        Image bgImage = new Image(bgTexture);
+        bgImage.setScaling(Scaling.fill);
         bgImage.setFillParent(true);
         stage.addActor(bgImage);
         bgImage.setZIndex(0);
@@ -66,30 +76,30 @@ public abstract class BaseScreen implements Screen {
         stage.dispose();
     }
 
-    protected com.badlogic.gdx.scenes.scene2d.ui.TextButton createStyledButton(String text) {
-        final com.badlogic.gdx.scenes.scene2d.ui.TextButton button = new com.badlogic.gdx.scenes.scene2d.ui.TextButton(text, com.kotcrab.vis.ui.VisUI.getSkin());
-        button.setColor(com.badlogic.gdx.graphics.Color.WHITE); 
+    protected ImageTextButton createStyledButton(String text) {
+        final ImageTextButton button = new ImageTextButton(text, VisUI.getSkin());
+        button.setColor(Color.WHITE);
 
         updateButtonFontColor(button);
 
-        button.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+        button.addListener(new InputListener() {
             @Override
-            public void enter(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, com.badlogic.gdx.scenes.scene2d.Actor fromActor) {
+            public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
                 if (!button.isDisabled() && pointer == -1) {
-                    button.getLabel().setColor(com.badlogic.gdx.graphics.Color.WHITE);
+                    button.getLabel().setColor(Color.WHITE);
                     AudioManager.playSound("hover");
                 }
             }
 
             @Override
-            public void exit(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, com.badlogic.gdx.scenes.scene2d.Actor toActor) {
+            public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
                 updateButtonFontColor(button);
             }
         });
 
-        button.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ClickListener() {
+        button.addListener(new ClickListener() {
             @Override
-            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+            public void clicked(InputEvent event, float x, float y) {
                 if (!button.isDisabled()) {
                     AudioManager.playSound("confirm");
                 } else {
@@ -97,12 +107,12 @@ public abstract class BaseScreen implements Screen {
                 }
             }
         });
-        
+
         return button;
     }
 
-    protected void updateButtonFontColor(com.badlogic.gdx.scenes.scene2d.ui.TextButton button) {
-        if (button.isDisabled()) button.getLabel().setColor(com.badlogic.gdx.graphics.Color.GRAY);
-        else button.getLabel().setColor(com.badlogic.gdx.graphics.Color.LIGHT_GRAY);
+    protected void updateButtonFontColor(ImageTextButton button) {
+        if (button.isDisabled()) button.getLabel().setColor(Color.GRAY);
+        else button.getLabel().setColor(Color.LIGHT_GRAY);
     }
 }

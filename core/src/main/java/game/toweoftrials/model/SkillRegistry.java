@@ -8,14 +8,14 @@ public class SkillRegistry {
 
     static {
         // Starting Skills
-        reg(new Skill("Strike", "A reliable basic attack dealing 100% damage.", Skill.SkillType.OFFENSIVE, 1, 0, 1.0f, "impactvfx"));
+        reg(new Skill("Strike", "A reliable basic attack dealing 100% damage.", Skill.SkillType.OFFENSIVE, 2, 0, 1.0f, "impactvfx"));
         reg(new Skill("Heavy Slash", "A powerful overhead swing dealing 250% damage.", Skill.SkillType.OFFENSIVE, 2, 2, 2.5f, "impactvfx"));
         reg(new Skill("Second Wind", "Focus your breathing to regain strength. (+50% Def as Shield)", Skill.SkillType.DEFENSIVE, 2, 3, 0.5f, "impactvfx"));
 
         // Floor 1: Sewer
         reg(new Skill("Slime Skin", "Reduces all direct damage taken by 15% for 3 turns.", Skill.SkillType.DEFENSIVE, 1, 3, 0.15f, "impactvfx")
             .setStatus(StatusComponent.EffectType.DEF_BUFF, 3, 0.15f));
-        
+
         reg(new Skill("Acid Spit", "Applies Poison for 3 turns and reduces target Speed by 20%.", Skill.SkillType.OFFENSIVE, 2, 3, 0.8f, "impactvfx")
             .setStatus(StatusComponent.EffectType.POISON, 3, 0.05f)); // 5% MaxHP damage per turn
 
@@ -30,7 +30,7 @@ public class SkillRegistry {
         reg(new Skill("Abyssal Shell", "Hide inside a legendary shell. Heals 25% Max HP and gains massive Defense, but you are Stunned for 1 turn.", Skill.SkillType.DEFENSIVE, 3, 5, 0.80f, "impactvfx")
             .setPercentHeal(0.25f).setStatus(StatusComponent.EffectType.DEF_BUFF, 2, 0.80f)
             .setSelfStatus(StatusComponent.EffectType.STUN, 1, 0));
-        
+
         reg(new Skill("Crushing Tentacles", "Physical damage to all enemies with a 30% chance to delay their turn.", Skill.SkillType.OFFENSIVE, 3, 3, 1.2f, "impactvfx")
             .setAoE(true));
 

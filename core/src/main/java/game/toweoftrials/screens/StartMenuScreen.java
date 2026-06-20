@@ -1,10 +1,13 @@
 package game.toweoftrials.screens;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.ImageTextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.badlogic.gdx.utils.Scaling;
 import com.kotcrab.vis.ui.VisUI;
 import game.toweoftrials.Main;
 import game.toweoftrials.utils.AudioManager;
@@ -16,21 +19,21 @@ public class StartMenuScreen extends BaseScreen {
         super(game);
         AudioManager.playMusic("menu");
 
-        com.badlogic.gdx.graphics.Texture bgTexture = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("background/main_menu_background.png"));
-        com.badlogic.gdx.scenes.scene2d.ui.Image bgImage = new com.badlogic.gdx.scenes.scene2d.ui.Image(bgTexture);
-        bgImage.setScaling(com.badlogic.gdx.utils.Scaling.fill);
+        Texture bgTexture = new Texture(Gdx.files.internal("background/main_menu_background.jpeg"));
+        Image bgImage = new Image(bgTexture);
+        bgImage.setScaling(Scaling.fill);
         bgImage.setFillParent(true);
         stage.addActor(bgImage);
-        bgImage.setZIndex(0); // Ensure it's behind the root table
+        bgImage.setZIndex(0);
 
         Label title = new Label("TOWER OF TRIALS", VisUI.getSkin());
-        title.setFontScale(2.0f); // Make the main title bigger
+        title.setFontScale(2.0f);
         root.add(title).pad(50).row();
 
         float btnWidth = 350;
 
         if (SaveManager.hasSave()) {
-            TextButton continueButton = createStyledButton("CONTINUE");
+            ImageTextButton continueButton = createStyledButton("CONTINUE");
             continueButton.addListener(new ChangeListener() {
                 @Override
                 public void changed(ChangeEvent event, Actor actor) {
@@ -40,7 +43,7 @@ public class StartMenuScreen extends BaseScreen {
             root.add(continueButton).width(btnWidth).pad(10).row();
         }
 
-        TextButton newGameButton = createStyledButton("NEW GAME");
+        ImageTextButton newGameButton = createStyledButton("NEW GAME");
         newGameButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -49,7 +52,7 @@ public class StartMenuScreen extends BaseScreen {
         });
         root.add(newGameButton).width(btnWidth).pad(10).row();
 
-        TextButton settingsButton = createStyledButton("SETTINGS");
+        ImageTextButton settingsButton = createStyledButton("SETTINGS");
         settingsButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -58,7 +61,7 @@ public class StartMenuScreen extends BaseScreen {
         });
         root.add(settingsButton).width(btnWidth).pad(10).row();
 
-        TextButton exitButton = createStyledButton("EXIT GAME");
+        ImageTextButton exitButton = createStyledButton("EXIT GAME");
         exitButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -66,8 +69,6 @@ public class StartMenuScreen extends BaseScreen {
             }
         });
         root.add(exitButton).width(btnWidth).pad(10).row();
-
-        root.add(new Label("C64 Edition - 2026", VisUI.getSkin())).padTop(100);
     }
 
 

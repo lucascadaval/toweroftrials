@@ -2,7 +2,8 @@ package game.toweoftrials.screens;
 
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.ImageTextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Array;
 import com.kotcrab.vis.ui.VisUI;
@@ -14,13 +15,16 @@ public class FloorMenuScreen extends BaseScreen {
 
     public FloorMenuScreen(Main game, int floor) {
         super(game);
-        setBackground("background/hub_background.png");
+        setBackground("background/hub_background.jpeg");
         this.floor = floor;
+        Table menuTable = new Table();
+        menuTable.setBackground(VisUI.getSkin().getDrawable("window"));
+        menuTable.pad(10);
 
         String floorName = getFloorName(floor);
-        root.add(new Label(floorName, VisUI.getSkin())).pad(20).row();
+        menuTable.add(new Label(floorName, VisUI.getSkin())).pad(20).row();
 
-        TextButton farmButton = createStyledButton("Farm Dungeon");
+        ImageTextButton farmButton = createStyledButton("Dungeon");
         farmButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -28,7 +32,7 @@ public class FloorMenuScreen extends BaseScreen {
             }
         });
 
-        TextButton bossButton = createStyledButton("Boss Room");
+        ImageTextButton bossButton = createStyledButton("Boss Room");
         bossButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -36,18 +40,19 @@ public class FloorMenuScreen extends BaseScreen {
             }
         });
 
-        TextButton backButton = createStyledButton("Back to Tower");
+        ImageTextButton backButton = createStyledButton("Back to Tower");
         backButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 game.setScreen(new HubScreen(game));
             }
         });
-
         float btnWidth = 300;
-        root.add(farmButton).width(btnWidth).pad(5).row();
-        root.add(bossButton).width(btnWidth).pad(5).row();
-        root.add(backButton).width(btnWidth).pad(20).row();
+        menuTable.add(farmButton).width(btnWidth).pad(5).row();
+        menuTable.add(bossButton).width(btnWidth).pad(5).row();
+        menuTable.add(backButton).width(btnWidth).pad(20).row();
+        
+        root.add(menuTable).center();
     }
 
     private String getFloorName(int floor) {

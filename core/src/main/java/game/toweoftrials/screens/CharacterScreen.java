@@ -7,7 +7,7 @@ import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.ImageTextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Scaling;
@@ -72,7 +72,7 @@ public class CharacterScreen extends BaseScreen {
         mainTable.add(equipTable).grow().pad(10);
         root.add(mainTable).grow().row();
 
-        TextButton backBtn = createStyledButton("BACK");
+        ImageTextButton backBtn = createStyledButton("BACK");
         backBtn.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -86,20 +86,24 @@ public class CharacterScreen extends BaseScreen {
         Table slot = new Table();
         slot.add(new Label(title, VisUI.getSkin())).row();
         
+        Table iconBg = new Table();
+        iconBg.setBackground(VisUI.getSkin().newDrawable("window", Color.DARK_GRAY));
+        
         Item item = player.getEquipped(type);
         if (item != null) {
-            Texture tex = new Texture(Gdx.files.internal("items/" + getFolder(type) + "/" + item.getIconPath()));
+            Texture tex = new Texture(Gdx.files.internal(item.getFullIconPath()));
             loadedTextures.add(tex);
             Image img = new Image(tex);
             img.setScaling(Scaling.fit);
-            slot.add(img).size(64).pad(5).row();
+            iconBg.add(img).size(56).center();
+            
+            slot.add(iconBg).size(64).pad(5).row();
+            
             Label name = new Label(item.getName(), VisUI.getSkin());
             name.setFontScale(0.8f);
             slot.add(name);
         } else {
-            Image placeholder = new Image(VisUI.getSkin().getDrawable("white"));
-            placeholder.setColor(Color.DARK_GRAY);
-            slot.add(placeholder).size(64).pad(5).row();
+            slot.add(iconBg).size(64).pad(5).row();
             slot.add(new Label("None", VisUI.getSkin()));
         }
         return slot;

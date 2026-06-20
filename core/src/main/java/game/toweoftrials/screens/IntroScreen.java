@@ -11,19 +11,22 @@ import com.kotcrab.vis.ui.VisUI;
 import game.toweoftrials.Main;
 
 public class IntroScreen extends BaseScreen {
-    private final Array<String> introLines = new Array<>();
-    private int currentLine = 0;
+    private final String fullText;
+    private float timeElapsed = 0;
+    private final float charsPerSecond = 40f; // Speed of the typewriter effect
     private final Label textLabel;
+    private final Label continueLabel;
+    private boolean isFinished = false;
 
     public IntroScreen(final Main game) {
         super(game);
         
-        introLines.add("You were not born into this world...");
-        introLines.add("You were 'summoned' as a Contractor.");
-        introLines.add("Long ago, your soul was bartered for a wish you no longer remember.");
-        introLines.add("To reclaim your mortality, you must ascend the Tower of Trials.");
-        introLines.add("Each floor is a manifested nightmare of a Guardian who reached their limit.");
-        introLines.add("Begin your ascent, little spark...");
+        fullText = "You were not born into this world...\n\n" +
+                   "You were 'summoned' as a Contractor.\n\n" +
+                   "Long ago, your soul was bartered for a wish you no longer remember.\n\n" +
+                   "To reclaim your mortality, you must ascend the Tower of Trials.\n\n" +
+                   "Each floor is a manifested nightmare of a Guardian who reached their limit.\n\n" +
+                   "Begin your ascent, little spark...";
 
         root.clear();
         root.setBackground(VisUI.getSkin().getDrawable("window"));
@@ -33,26 +36,37 @@ public class IntroScreen extends BaseScreen {
         textLabel.setAlignment(Align.center);
         root.add(textLabel).width(600).expand().center().row();
         
-        root.add(new Label("(Click to continue...)", VisUI.getSkin())).pad(20).bottom();
+        continueLabel = new Label("(Click to begin your journey...)", VisUI.getSkin());
+        continueLabel.setVisible(false);
+        root.add(continueLabel).pad(20).bottom();
         
         root.setTouchable(Touchable.enabled);
         root.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
             @Override
             public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, int button) {
-                nextLine();
+                if (isFinished) {
+                    game.setScreen(new HubScreen(game));
+                } else {
+                    // Skip animation
+                    timeElapsed = fullText.length() / charsPerSecond;
+                }
                 return true;
             }
         });
-        
-        nextLine();
     }
 
-    private void nextLine() {
-        if (currentLine < introLines.size) {
-            textLabel.setText(introLines.get(currentLine));
-            currentLine++;
-        } else {
-            game.setScreen(new HubScreen(game));
+    @Override
+    public void render(float delta) {
+        super.render(delta);
+        if (!isFinished) {
+            timeElapsed += delta;
+            int charsToShow = (int) (timeElapsed * charsPerSecond);
+            if (charsToShow >= fullText.length()) {
+                charsToShow = fullText.length();
+                isFinished = true;
+                continueLabel.setVisible(true);
+            }
+            textLabel.setText(fullText.substring(0, charsToShow));
         }
     }
 }

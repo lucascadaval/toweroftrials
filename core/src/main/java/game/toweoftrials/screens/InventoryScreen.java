@@ -8,7 +8,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.ImageTextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Array;
@@ -69,7 +69,7 @@ public class InventoryScreen extends BaseScreen {
         
         root.add(main).grow().row();
 
-        TextButton back = createStyledButton("BACK");
+        ImageTextButton back = createStyledButton("BACK");
         back.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -81,8 +81,8 @@ public class InventoryScreen extends BaseScreen {
         refreshList();
     }
 
-    private TextButton createFilterButton(String text, final Item.ItemType type) {
-        TextButton btn = createStyledButton(text);
+    private ImageTextButton createFilterButton(String text, final Item.ItemType type) {
+        ImageTextButton btn = createStyledButton(text);
         btn.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -112,18 +112,18 @@ public class InventoryScreen extends BaseScreen {
             row.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
             
             // Icon
-            Texture tex = new Texture(Gdx.files.internal("items/" + getFolder(item.getType()) + "/" + item.getIconPath()));
+            Texture tex = new Texture(Gdx.files.internal(item.getFullIconPath()));
             loadedTextures.add(tex);
             Image icon = new Image(tex);
             icon.setScaling(Scaling.fit);
-            row.add(icon).size(32).pad(5);
+            row.add(icon).size(64).pad(5).left();
             
             Label nameLabel = new Label(item.getName(), VisUI.getSkin());
             if (player.getEquipped(item.getType()) == item) {
                 nameLabel.setText(item.getName() + " (E)");
                 nameLabel.setColor(Color.GREEN);
             }
-            row.add(nameLabel).left().expandX();
+            row.add(nameLabel).width(250).left().padLeft(10);
             
             row.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
                 @Override
@@ -133,7 +133,7 @@ public class InventoryScreen extends BaseScreen {
                 }
             });
             
-            listTable.add(row).growX().pad(2).row();
+            listTable.add(row).pad(5).row();
         }
     }
 
@@ -152,7 +152,7 @@ public class InventoryScreen extends BaseScreen {
     private void showDetails(final Item item) {
         detailArea.clear();
         
-        Texture tex = new Texture(Gdx.files.internal("items/" + getFolder(item.getType()) + "/" + item.getIconPath()));
+        Texture tex = new Texture(Gdx.files.internal(item.getFullIconPath()));
         loadedTextures.add(tex);
         Image icon = new Image(tex);
         icon.setScaling(Scaling.fit);
@@ -166,14 +166,21 @@ public class InventoryScreen extends BaseScreen {
         
         // Stats
         Table stats = new Table();
-        if (item.hpBonus != 0) stats.add(new Label("HP: +" + item.hpBonus, VisUI.getSkin())).pad(5).row();
-        if (item.attackBonus != 0) stats.add(new Label("ATK: +" + item.attackBonus, VisUI.getSkin())).pad(5).row();
-        if (item.defenseBonus != 0) stats.add(new Label("DEF: +" + item.defenseBonus, VisUI.getSkin())).pad(5).row();
-        if (item.speedBonus != 0) stats.add(new Label("SPD: +" + item.speedBonus, VisUI.getSkin())).pad(5).row();
+        Item eq = player.getEquipped(item.getType());
+        int eqHp = eq != null ? eq.hpBonus : 0;
+        int eqAtk = eq != null ? eq.attackBonus : 0;
+        int eqDef = eq != null ? eq.defenseBonus : 0;
+        int eqSpd = eq != null ? eq.speedBonus : 0;
+        
+        addStatLabel(stats, "HP", item.hpBonus, eqHp);
+        addStatLabel(stats, "ATK", item.attackBonus, eqAtk);
+        addStatLabel(stats, "DEF", item.defenseBonus, eqDef);
+        addStatLabel(stats, "SPD", item.speedBonus, eqSpd);
+        
         detailArea.add(stats).pad(10).row();
 
         final boolean isEquipped = player.getEquipped(item.getType()) == item;
-        TextButton actionBtn = createStyledButton(isEquipped ? "UNEQUIP" : "EQUIP");
+        ImageTextButton actionBtn = createStyledButton(isEquipped ? "UNEQUIP" : "EQUIP");
         actionBtn.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -191,7 +198,24 @@ public class InventoryScreen extends BaseScreen {
         detailArea.add(actionBtn).width(200).pad(20);
     }
 
-
+    private void addStatLabel(Table table, String name, int val, int equippedVal) {
+        if (val == 0 && equippedVal == 0) return;
+        
+        Table row = new Table();
+        String valSign = val > 0 ? "+" : "";
+        Label baseLabel = new Label(name + ": " + valSign + val, VisUI.getSkin());
+        row.add(baseLabel).padRight(10);
+        
+        int diff = val - equippedVal;
+        if (diff != 0) {
+            String sign = diff > 0 ? "+" : "";
+            Label diffLabel = new Label("(" + sign + diff + ")", VisUI.getSkin());
+            diffLabel.setColor(diff > 0 ? Color.GREEN : Color.RED);
+            row.add(diffLabel);
+        }
+        
+        table.add(row).pad(5).row();
+    }
 
     @Override
     public void dispose() {

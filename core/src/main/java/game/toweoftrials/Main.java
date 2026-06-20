@@ -31,8 +31,8 @@ public class Main extends Game {
             AudioManager.setSoundVolume(data.soundVolume);
         }
 
-        TextureAtlas atlas = new TextureAtlas(Gdx.files.internal("Commodore_64_UI_Skin/commodore64ui/uiskin.atlas"));
-        Skin skin = new Skin(Gdx.files.internal("Commodore_64_UI_Skin/commodore64ui/uiskin.json"), atlas);
+        TextureAtlas atlas = new TextureAtlas(Gdx.files.internal("Terra_Mother_UI_Skin/terramotherui/terra-mother-ui.atlas"));
+        Skin skin = new Skin(Gdx.files.internal("Terra_Mother_UI_Skin/terramotherui/terra-mother-ui.json"), atlas);
         VisUI.load(skin);
 
         setScreen(new StartMenuScreen(this));
@@ -56,7 +56,6 @@ public class Main extends Game {
             clearedBosses.clear(); clearedBosses.addAll(data.clearedBosses);
             metBosses.clear(); metBosses.addAll(data.metBosses);
 
-            // REPAIR LOGIC: Ensure highestFloor matches cleared bosses
             for (int cf : clearedBosses) {
                 if (cf + 1 > highestFloor) highestFloor = cf + 1;
             }
@@ -72,17 +71,16 @@ public class Main extends Game {
     private void createNewHero() {
         Entity hero = new Entity();
         hero.add(new StatsComponent("Hero", 100, 20, 10, 15));
-        hero.add(new APComponent(5));
+        hero.add(new APComponent(4, 4));
         hero.add(new BattleComponent(true));
         hero.add(new StatusComponent());
-        
+
         AbilitiesComponent abilities = new AbilitiesComponent();
-        // Use SkillRegistry
         abilities.skills.add(SkillRegistry.get("Strike"));
         abilities.skills.add(SkillRegistry.get("Heavy Slash"));
         abilities.skills.add(SkillRegistry.get("Second Wind"));
         hero.add(abilities);
-        
+
         hero.add(new LevelComponent());
         hero.add(new VisualComponent("player/img.png"));
         HeroManager.setHero(hero);
@@ -91,16 +89,15 @@ public class Main extends Game {
     private void loadHeroFromSave(SaveManager.SaveData data) {
         Entity hero = new Entity();
         hero.add(new StatsComponent("Hero", data.maxHp, data.attack, data.defense, data.speed));
-        hero.add(new APComponent(5));
+        hero.add(new APComponent(4, 4));
         hero.add(new BattleComponent(true));
         hero.add(new StatusComponent());
-        
+
         AbilitiesComponent abilities = new AbilitiesComponent();
         for (String sName : data.unlockedSkillNames) {
             Skill s = SkillRegistry.get(sName);
             if (s != null) abilities.skills.add(s);
         }
-        // Fallback if empty
         if (abilities.skills.size == 0) {
             abilities.skills.add(SkillRegistry.get("Strike"));
             abilities.skills.add(SkillRegistry.get("Heavy Slash"));
@@ -116,13 +113,13 @@ public class Main extends Game {
 
         hero.add(new VisualComponent("player/img.png"));
         HeroManager.setHero(hero);
-        
+
         Player player = HeroManager.getPlayer();
         for (String itemName : data.inventoryItemNames) {
             Item item = ItemRegistry.get(itemName);
             if (item != null) player.addItem(item);
         }
-        
+
         for (String itemName : data.equippedItemNames) {
             Item item = ItemRegistry.get(itemName);
             if (item != null) player.equipItem(item);
@@ -130,7 +127,7 @@ public class Main extends Game {
     }
 
     public int getHighestFloor() { return highestFloor; }
-    public void setHighestFloor(int floor) { 
+    public void setHighestFloor(int floor) {
         if (floor > highestFloor) {
             highestFloor = floor;
             saveGame();
@@ -162,7 +159,7 @@ public class Main extends Game {
             saveGame();
         }
     }
-    
+
     public void saveGame() {
         SaveManager.saveGame(highestFloor, clearedDungeons, clearedBosses, metBosses, AudioManager.getMusicVolume(), AudioManager.getSoundVolume());
     }
