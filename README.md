@@ -1,7 +1,5 @@
 # 🏰 Tower of Trials
 
-![Game Logo/Banner Placeholder](assets/docs/images/banner_placeholder.png)
-
 **Tower of Trials** é um RPG Tático de Turnos "UI-Driven" com uma estética retrô fortemente inspirada nos sistemas clássicos como o Commodore 64 e interfaces minimalistas. 
 
 Em vez de focar em exploração de mapas e andanças intermináveis, *Tower of Trials* corta diretamente para a ação estratégica. Você gerencia seus Pontos de Ação (AP), habilidades e inventário através de uma interface limpa e imersiva para enfrentar hordas de monstros e chefes implacáveis em uma torre de 8 andares.
