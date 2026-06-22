@@ -366,6 +366,16 @@ public class CombatSystem extends EntitySystem {
             ps.attack += 3;
             ps.defense += 2;
             ps.speed += 2;
+
+            APComponent ap = am.get(playerEntity);
+            if (ap != null) {
+                int newMaxAp = 4 + (pl.level / 5);
+                if (newMaxAp > ap.maxAP) {
+                    ap.maxAP = newMaxAp;
+                    listener.onActionResolved("Max Action Points increased to " + newMaxAp + "!");
+                }
+            }
+
             listener.onActionResolved("LEVEL UP! Reached Level " + pl.level + "!");
         }
     }

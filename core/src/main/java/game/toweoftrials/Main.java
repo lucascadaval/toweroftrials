@@ -89,7 +89,8 @@ public class Main extends Game {
     private void loadHeroFromSave(SaveManager.SaveData data) {
         Entity hero = new Entity();
         hero.add(new StatsComponent("Hero", data.maxHp, data.attack, data.defense, data.speed));
-        hero.add(new APComponent(4, 4));
+        int maxAp = 4 + (data.level / 5);
+        hero.add(new APComponent(maxAp, maxAp));
         hero.add(new BattleComponent(true));
         hero.add(new StatusComponent());
 
