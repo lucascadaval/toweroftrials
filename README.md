@@ -1,7 +1,6 @@
 # 🏰 Tower of Trials
 
-![Game Logo/Banner Placeholder](docs/images/banner_placeholder.png)
-*(Espaço para o banner ou logo do jogo)*
+![Game Logo/Banner Placeholder](assets/docs/images/banner_placeholder.png)
 
 **Tower of Trials** é um RPG Tático de Turnos "UI-Driven" com uma estética retrô fortemente inspirada nos sistemas clássicos como o Commodore 64 e interfaces minimalistas. 
 
@@ -11,15 +10,13 @@ Em vez de focar em exploração de mapas e andanças intermináveis, *Tower of T
 
 ## 📸 Screenshots
 
-*(Espaço para prints do jogo)*
-
 <p align="center">
-  <img src="docs/images/screenshot_hub_placeholder.png" width="45%" alt="Hub Screen" />
-  <img src="docs/images/screenshot_combat_placeholder.png" width="45%" alt="Combat Screen" />
+  <img src="assets/docs/images/screenshot_hub_placeholder.png" width="45%" alt="Hub Screen" />
+  <img src="assets/docs/images/screenshot_combat_placeholder.png" width="45%" alt="Combat Screen" />
 </p>
 <p align="center">
-  <img src="docs/images/screenshot_inventory_placeholder.png" width="45%" alt="Inventory Screen" />
-  <img src="docs/images/screenshot_loot_placeholder.png" width="45%" alt="Loot Popup" />
+  <img src="assets/docs/images/screenshot_inventory_placeholder.png" width="45%" alt="Inventory Screen" />
+  <img src="assets/docs/images/screenshot_loot_placeholder.png" width="45%" alt="Loot Popup" />
 </p>
 
 ---
