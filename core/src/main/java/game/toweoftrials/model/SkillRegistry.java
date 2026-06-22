@@ -10,24 +10,24 @@ public class SkillRegistry {
         // Starting Skills
         reg(new Skill("Strike", "A reliable basic attack dealing 100% damage.", Skill.SkillType.OFFENSIVE, 2, 0, 1.0f, "impactvfx"));
         reg(new Skill("Heavy Slash", "A powerful overhead swing dealing 250% damage.", Skill.SkillType.OFFENSIVE, 2, 2, 2.5f, "impactvfx"));
-        reg(new Skill("Second Wind", "Focus your breathing to regain strength. (+50% Def as Shield)", Skill.SkillType.DEFENSIVE, 2, 3, 0.5f, "impactvfx"));
+        reg(new Skill("Second Wind", "Focus your breathing to regain strength. (+50% Def as Shield)", Skill.SkillType.DEFENSIVE, 2, 3, 0.5f, "buffvfx"));
 
         // Floor 1: Sewer
-        reg(new Skill("Slime Skin", "Reduces all direct damage taken by 15% for 3 turns.", Skill.SkillType.DEFENSIVE, 1, 3, 0.15f, "impactvfx")
+        reg(new Skill("Slime Skin", "Reduces all direct damage taken by 15% for 3 turns.", Skill.SkillType.DEFENSIVE, 1, 3, 0.15f, "buffvfx")
             .setStatus(StatusComponent.EffectType.DEF_BUFF, 3, 0.15f));
 
         reg(new Skill("Acid Spit", "Applies Poison for 3 turns and reduces target Speed by 20%.", Skill.SkillType.OFFENSIVE, 2, 3, 0.8f, "impactvfx")
             .setStatus(StatusComponent.EffectType.POISON, 3, 0.05f)); // 5% MaxHP damage per turn
 
         // Floor 2: The Unseen
-        reg(new Skill("Hidden Vision", "Focus your senses. Increases Critical Hit Rate by 30% for 3 turns.", Skill.SkillType.DEFENSIVE, 1, 3, 0.30f, "impactvfx")
+        reg(new Skill("Hidden Vision", "Focus your senses. Increases Critical Hit Rate by 30% for 3 turns.", Skill.SkillType.DEFENSIVE, 1, 3, 0.30f, "buffvfx")
             .setStatus(StatusComponent.EffectType.CRIT_BUFF, 3, 0.30f));
 
         reg(new Skill("Abyssal Gaze", "Stuns a single target for 1 turn and reduces their Defense by 15%.", Skill.SkillType.OFFENSIVE, 3, 4, 0.5f, "impactvfx")
             .setStatus(StatusComponent.EffectType.STUN, 1, 0));
 
         // Floor 3: Dead Sea
-        reg(new Skill("Abyssal Shell", "Hide inside a legendary shell. Heals 25% Max HP and gains massive Defense, but you are Stunned for 1 turn.", Skill.SkillType.DEFENSIVE, 3, 5, 0.80f, "impactvfx")
+        reg(new Skill("Abyssal Shell", "Hide inside a legendary shell. Heals 25% Max HP and gains massive Defense, but you are Stunned for 1 turn.", Skill.SkillType.DEFENSIVE, 3, 5, 0.80f, "buffvfx")
             .setPercentHeal(0.25f).setStatus(StatusComponent.EffectType.DEF_BUFF, 2, 0.80f)
             .setSelfStatus(StatusComponent.EffectType.STUN, 1, 0));
 
@@ -45,11 +45,11 @@ public class SkillRegistry {
         reg(new Skill("Lethal Stinger", "High physical pierce damage. Consumes Poison to deal double damage.", Skill.SkillType.OFFENSIVE, 2, 1, 1.5f, "impactvfx")
             .setIgnoreDef(true).setDetonate(true));
 
-        reg(new Skill("Primal Fury", "+40% Attack, but -15% Defense for 3 turns.", Skill.SkillType.DEFENSIVE, 2, 5, 0.4f, "impactvfx")
+        reg(new Skill("Primal Fury", "+40% Attack, but -15% Defense for 3 turns.", Skill.SkillType.DEFENSIVE, 2, 5, 0.4f, "buffvfx")
             .setStatus(StatusComponent.EffectType.ATK_BUFF, 3, 0.4f));
 
         // Floor 6: Swamp
-        reg(new Skill("Cold-Blooded Stance", "Heals 10% Max HP for 3 turns.", Skill.SkillType.HEAL, 2, 4, 0.1f, "impactvfx"));
+        reg(new Skill("Cold-Blooded Stance", "Heals 10% Max HP for 3 turns.", Skill.SkillType.HEAL, 2, 4, 0.1f, "buffvfx"));
 
         reg(new Skill("Shogun's Shadow Slash", "Single target attack that ignores 50% of enemy Defense.", Skill.SkillType.OFFENSIVE, 2, 0, 1.3f, "impactvfx")
             .setIgnoreDef(true));

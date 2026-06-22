@@ -79,7 +79,8 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
     private static class ActiveAnimation {
         AnimationEffect effect;
         Actor anchor;
-        ActiveAnimation(AnimationEffect effect, Actor anchor) { this.effect = effect; this.anchor = anchor; }
+        float scale;
+        ActiveAnimation(AnimationEffect effect, Actor anchor, float scale) { this.effect = effect; this.anchor = anchor; this.scale = scale; }
     }
 
     public BattleScreen(Main game, int floor, Array<Array<String>> waveMonsterIds) {
@@ -89,7 +90,18 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         this.currentWaveIndex = 0;
         this.isBossBattle = waveMonsterIds.size == 1 && MonsterRegistry.get(waveMonsterIds.get(0).get(0)).type == Enemy.EnemyType.BOSS;
         this.white = VisUI.getSkin().getDrawable("white");
-        this.backgroundTexture = new Texture(Gdx.files.internal("background/Dungeon_Poison.png"));
+        String bgFile = "sewer.png";
+        switch (floor) {
+            case 1: bgFile = "sewer.png"; break;
+            case 2: bgFile = "the_unseen.png"; break;
+            case 3: bgFile = "dead_sea.png"; break;
+            case 4: bgFile = "forgotten_library.png"; break;
+            case 5: bgFile = "jungle.png"; break;
+            case 6: bgFile = "swamp.png"; break;
+            case 7: bgFile = "abandoned_mansion.png"; break;
+            case 8: bgFile = "undead_cemetery.png"; break;
+        }
+        this.backgroundTexture = new Texture(Gdx.files.internal("background/" + bgFile));
 
         loadSkillAnimations();
 
@@ -155,6 +167,12 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
             frames.add(new Texture(Gdx.files.internal("skills/impactvfx/VFXimpact3_frame" + i + ".png")));
         }
         animationFrames.put("impactvfx", frames);
+
+        Array<Texture> buffFrames = new Array<>();
+        for (int i = 1; i <= 12; i++) {
+            buffFrames.add(new Texture(Gdx.files.internal("skills/buff/Priest_skill3_frame" + i + ".png")));
+        }
+        animationFrames.put("buffvfx", buffFrames);
     }
 
     private void setupPlayer() {
@@ -571,7 +589,13 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         } else {
             ImageTextButton returnBtn = createStyledButton("Return");
             returnBtn.addListener(new ChangeListener() {
-                @Override public void changed(ChangeEvent event, Actor actor) { game.setScreen(new HubScreen(game)); }
+                @Override public void changed(ChangeEvent event, Actor actor) { 
+                    if (playerWonLast && isBossBattle && floor == 8) {
+                        game.setScreen(new OutroScreen(game));
+                    } else {
+                        game.setScreen(new HubScreen(game)); 
+                    }
+                }
             });
             actionArea.add(returnBtn).width(200);
         }
@@ -800,7 +824,8 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
         }
 
         if (animationName != null && animationFrames.containsKey(animationName)) {
-            activeAnimations.add(new ActiveAnimation(new AnimationEffect(animationFrames.get(animationName), 0.05f), targetActor));
+            float scale = animationName.equals("buffvfx") ? 1.0f : 2.0f;
+            activeAnimations.add(new ActiveAnimation(new AnimationEffect(animationFrames.get(animationName), 0.05f), targetActor, scale));
         }
     }
 
@@ -906,7 +931,7 @@ public class BattleScreen extends BaseScreen implements CombatSystem.CombatListe
                 TextureRegion frame = aa.effect.getKeyFrame();
                 Vector2 pos = new Vector2(aa.anchor.getWidth() / 2, aa.anchor.getHeight() / 2);
                 aa.anchor.localToStageCoordinates(pos);
-                float drawW = frame.getRegionWidth() * 2; float drawH = frame.getRegionHeight() * 2;
+                float drawW = frame.getRegionWidth() * aa.scale; float drawH = frame.getRegionHeight() * aa.scale;
                 stage.getBatch().draw(frame, pos.x - drawW/2, pos.y - drawH/2, drawW, drawH);
             }
         }
