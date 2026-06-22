@@ -38,17 +38,17 @@ public class CharacterScreen extends BaseScreen {
         root.add(title).colspan(2).pad(20).row();
 
         Table mainTable = new Table();
-        
+
         // Left Side: Stats & Level
         Table statsTable = new Table();
         statsTable.setBackground(VisUI.getSkin().getDrawable("window"));
         statsTable.add(new Label("--- PROGRESSION ---", VisUI.getSkin())).pad(10).row();
-        
+
         LevelComponent lc = player.getLevel();
         statsTable.add(new Label("Name: " + player.getName(), VisUI.getSkin())).left().pad(5).row();
         statsTable.add(new Label("Level: " + lc.level, VisUI.getSkin())).left().pad(5).row();
         statsTable.add(new Label("XP: " + lc.currentXp + " / " + lc.xpToNextLevel, VisUI.getSkin())).left().pad(5).row();
-        
+
         statsTable.add(new Label("--- BASE STATS ---", VisUI.getSkin())).pad(10).row();
         StatsComponent sc = player.getStats();
         statsTable.add(new Label("HP: " + sc.hp + " / " + sc.maxHp, VisUI.getSkin())).left().pad(5).row();
@@ -85,10 +85,10 @@ public class CharacterScreen extends BaseScreen {
     private Table createEquipSlot(String title, Item.ItemType type) {
         Table slot = new Table();
         slot.add(new Label(title, VisUI.getSkin())).row();
-        
+
         Table iconBg = new Table();
         iconBg.setBackground(VisUI.getSkin().newDrawable("window", Color.DARK_GRAY));
-        
+
         Item item = player.getEquipped(type);
         if (item != null) {
             Texture tex = new Texture(Gdx.files.internal(item.getFullIconPath()));
@@ -96,9 +96,9 @@ public class CharacterScreen extends BaseScreen {
             Image img = new Image(tex);
             img.setScaling(Scaling.fit);
             iconBg.add(img).size(56).center();
-            
+
             slot.add(iconBg).size(64).pad(5).row();
-            
+
             Label name = new Label(item.getName(), VisUI.getSkin());
             name.setFontScale(0.8f);
             slot.add(name);
