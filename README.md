@@ -52,12 +52,24 @@ O jogo foi otimizado como uma aplicação Desktop *standalone*.
 
 ---
 
-## 🛠️ Como Rodar / Compilar
+## 🛠️ Como Jogar / Instalar
 
-Para rodar ou compilar o jogo diretamente do código-fonte, você precisará do **Java 17 (JDK)** instalado na sua máquina.
+### 🎮 Baixando o Executável (Recomendado)
+A maneira mais fácil de jogar é baixando a versão mais recente da **v1.0.0** diretamente na nossa página de **[Releases](../../releases/latest)**. 
+Lá você encontrará os arquivos nativos e empacotados para:
+- **Windows** (`.exe`)
+- **Linux** (Nativo)
+- **macOS** (Intel e Apple Silicon/M1)
 
-### Executando o Jogo
-Você pode executar o jogo rapidamente através do terminal utilizando o Gradle Wrapper incluso no projeto:
+Basta baixar o arquivo `.zip` correspondente ao seu sistema, extrair e executar o jogo. Não é necessário instalar o Java!
+
+---
+
+### 💻 Compilando do Código-Fonte
+Se você for um desenvolvedor e quiser rodar ou compilar o jogo diretamente do código-fonte, precisará do **Java 17 (JDK)** instalado na sua máquina.
+
+#### Executando o Jogo Localmente
+Você pode executar o jogo rapidamente através do terminal utilizando o Gradle Wrapper:
 
 **Windows**:
 ```bat
@@ -69,8 +81,8 @@ gradlew.bat lwjgl3:run
 ./gradlew lwjgl3:run
 ```
 
-### Compilando um .JAR Executável
-Para gerar um arquivo `.jar` que pode ser distribuído e executado em qualquer computador com Java:
+#### Gerando um .JAR Executável
+Para gerar um arquivo `.jar` cruzado:
 
 **Windows**:
 ```bat
@@ -81,9 +93,23 @@ gradlew.bat lwjgl3:jar
 ```bash
 ./gradlew lwjgl3:jar
 ```
-O executável compilado estará disponível na pasta: `lwjgl3/build/libs/`.
+O executável `.jar` estará disponível na pasta: `lwjgl3/build/libs/`.
 
 ---
 
 ## 📜 Licença e Créditos
-*(Espaço reservado para licença open-source, agradecimentos e créditos de assets gráficos/áudio utilizados)*
+
+Um agradecimento especial aos incríveis artistas que disponibilizaram seus assets gratuitamente, tornando a construção deste MVP possível:
+
+- [**Terra Mother UI**](https://github.com/czyzby/gdx-skins/tree/master/terra-mother) by Raymond "Raeleus" Buckley
+- [**Pixel Art VFX - Priest**](https://frostwindz.itch.io/pixel-art-vfx-priest) by Frostwindz
+- [**Pixel Art VFX - Impacts**](https://frostwindz.itch.io/pixel-art-vfx-impacts-free-version) by Frostwindz
+- [**Mythic Monsters**](https://willibab.itch.io/free-mythic-monsters) by Willibab
+- [**Willibab's Pixel Battle Backgrounds**](https://willibab.itch.io/willibabs-free-pixel-battle-backgrounds) by Willibab
+
+### Ferramentas e Tecnologias
+Este jogo foi desenvolvido inteiramente em **Java** e utiliza as seguintes tecnologias:
+- [**LibGDX**](https://libgdx.com/) - Engine base para renderização e gerenciamento do ciclo de vida.
+- [**Ashley ECS**](https://github.com/libgdx/ashley) - Framework de Entity-Component-System para gerenciamento da lógica de combate.
+- [**VisUI**](https://github.com/kotcrab/vis-ui) - Biblioteca para interfaces gráficas complexas sobre o Scene2D.
+- [**Construo**](https://github.com/fourlastor/construo) - Ferramenta de empacotamento para gerar os executáveis nativos (Windows, Mac, Linux).
